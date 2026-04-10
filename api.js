@@ -1,15 +1,16 @@
 // api.js — Valor AI Fuel Gauge API helper.
 // All external calls are routed through here. No DOM scraping.
-// REQUIRED: Every Anthropic fetch must include anthropic-dangerous-direct-browser-access header.
+// REQUIRED: Every Anthropic fetch includes anthropic-dangerous-direct-browser-access header.
+// RULE: Never use the messages endpoint for usage checking. Track usage locally.
+// The messages endpoint is used ONLY for one-time key validation on first load.
 
-const ValorAPI = {
+var ValorAPI = {
 
   /**
-   * Build the standard headers for every Anthropic API call.
-   * @param {string} apiKey — Decrypted Anthropic API key.
-   * @returns {Object}
+   * Standard headers for every Anthropic API call.
+   * Always includes anthropic-dangerous-direct-browser-access or calls return 401.
    */
-  _headers(apiKey) {
+  _headers: function(apiKey) {
     return {
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
@@ -19,13 +20,11 @@ const ValorAPI = {
   },
 
   /**
-   * Validate an API key by making a minimal one-token request.
-   * Returns the token count consumed so the local tracker can record it.
-   *
-   * @param {string} apiKey
-   * @returns {Promise<Object>}  { ok, tokensUsed } or { ok:false, error }
+   * One-time key validation. Sends a minimal 1-token test message.
+   * Called on first load only, never for usage polling.
+   * Returns the token count so the local tracker can record it.
    */
-  async validateKey(apiKey) {
+  validateKey: async function(apiKey) {
     var response;
     try {
       response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -38,7 +37,6 @@ const ValorAPI = {
         })
       });
     } catch (err) {
-      console.error('[ValorAPI] validateKey network error:', err.message);
       return { ok: false, error: 'network_error' };
     }
 
@@ -47,7 +45,6 @@ const ValorAPI = {
     }
 
     if (!response.ok) {
-      console.error('[ValorAPI] validateKey HTTP', response.status);
       return { ok: false, error: 'api_error' };
     }
 
@@ -70,29 +67,23 @@ const ValorAPI = {
    * Purchase an action pack via Stripe checkout.
    * Placeholder: not yet implemented.
    */
-  async purchaseActionPack() {
-    console.log('[ValorAPI] purchaseActionPack — not yet implemented.');
+  purchaseActionPack: async function() {
     return { ok: false, message: 'Stripe integration pending.' };
   },
 
   /**
    * Run a quick summary action via the Anthropic API.
-   * Placeholder: not yet implemented.
-   * @param {string} apiKey
-   * @param {string} text
+   * Placeholder: not yet implemented. Will use _headers() and record tokens.
    */
-  async runSummaryAction(apiKey, text) {
-    console.log('[ValorAPI] runSummaryAction — not yet implemented.');
+  runSummaryAction: async function(apiKey, text) {
     return { ok: false, message: 'Anthropic integration pending.' };
   },
 
   /**
    * Send an onboarding email via Resend.
    * Placeholder: not yet implemented.
-   * @param {string} email
    */
-  async sendOnboardingEmail(email) {
-    console.log('[ValorAPI] sendOnboardingEmail — not yet implemented.');
+  sendOnboardingEmail: async function(email) {
     return { ok: false, message: 'Resend integration pending.' };
   }
 };

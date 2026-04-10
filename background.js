@@ -1,19 +1,19 @@
 // background.js — Valor AI Fuel Gauge service worker.
-// Validates API key, tracks token usage locally, serves data to popup.
-// Does NOT poll the Anthropic API for usage — all tracking is local.
+// All usage tracking is LOCAL in Chrome storage. No Anthropic usage endpoint exists.
+// The only API call is a one-time key validation on first load.
 
 importScripts('storage.js', 'api.js');
 
-const TRACKER_KEY = '_valor_token_tracker';
-const DEFAULT_BUDGET = 1000000; // 1 million tokens per monthly period
+var TRACKER_KEY = '_valor_token_tracker';
+var DEFAULT_BUDGET = 100000; // 100,000 tokens per month
 
 // ── Lifecycle ──
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(function() {
   initTracker();
 });
 
-// ── Token tracker ──
+// ── Local token tracker ──
 
 async function initTracker() {
   var stored = await ValorStorage.get([TRACKER_KEY]);
@@ -37,7 +37,7 @@ async function getTracker() {
   var stored = await ValorStorage.get([TRACKER_KEY]);
   var tracker = stored[TRACKER_KEY];
 
-  // Reset if the monthly period has elapsed.
+  // Auto-reset if the monthly period has elapsed.
   if (new Date() >= new Date(tracker.resetDate)) {
     var now = new Date();
     var nextReset = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -57,32 +57,6 @@ async function addTokens(count) {
   return tracker;
 }
 
-// ── Key validation (one-time per key save, not polling) ──
-
-async function validateAndCache() {
-  var apiKey = await ValorStorage.loadApiKey();
-  if (!apiKey) {
-    return { ok: false, error: 'no_key' };
-  }
-
-  var result = await ValorAPI.validateKey(apiKey);
-
-  var tracker = await getTracker();
-
-  if (!result.ok) {
-    tracker.keyValid = false;
-    await ValorStorage.set({ [TRACKER_KEY]: tracker });
-    return { ok: false, error: result.error };
-  }
-
-  // Key is valid. Record the tokens the validation probe used.
-  tracker.keyValid = true;
-  tracker.tokensUsed += result.tokensUsed;
-  await ValorStorage.set({ [TRACKER_KEY]: tracker });
-
-  return buildUsageResponse(tracker);
-}
-
 function buildUsageResponse(tracker) {
   var remaining = tracker.tokenBudget - tracker.tokensUsed;
   if (remaining < 0) remaining = 0;
@@ -98,9 +72,34 @@ function buildUsageResponse(tracker) {
   };
 }
 
+// ── One-time key validation (first load only) ──
+
+async function validateOnce() {
+  var apiKey = await ValorStorage.loadApiKey();
+  if (!apiKey) {
+    return { ok: false, error: 'no_key' };
+  }
+
+  var result = await ValorAPI.validateKey(apiKey);
+  var tracker = await getTracker();
+
+  if (!result.ok) {
+    tracker.keyValid = false;
+    await ValorStorage.set({ [TRACKER_KEY]: tracker });
+    return { ok: false, error: result.error };
+  }
+
+  // Key is valid. Record the tokens the validation probe consumed.
+  tracker.keyValid = true;
+  tracker.tokensUsed += result.tokensUsed;
+  await ValorStorage.set({ [TRACKER_KEY]: tracker });
+
+  return buildUsageResponse(tracker);
+}
+
 // ── Message handler ──
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
 
   if (message.type === 'GET_USAGE') {
     handleGetUsage().then(sendResponse);
@@ -115,7 +114,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'FORCE_VALIDATE') {
-    validateAndCache().then(sendResponse);
+    validateOnce().then(sendResponse);
     return true;
   }
 });
@@ -128,9 +127,9 @@ async function handleGetUsage() {
 
   var tracker = await getTracker();
 
-  // If the key has never been validated, validate it now.
+  // Validate key on first load only. After that, read local tracker.
   if (!tracker.keyValid) {
-    return validateAndCache();
+    return validateOnce();
   }
 
   return buildUsageResponse(tracker);
