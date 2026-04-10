@@ -1,7 +1,8 @@
 // popup.js — Valor AI Fuel Gauge popup logic.
 // Reads local token tracking data from the background service worker.
+// Sends a PING first to wake the service worker before requesting data.
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function() {
 
   // ── DOM references ──
   var gaugeArc = document.getElementById('gauge-arc');
@@ -61,10 +62,6 @@ document.addEventListener('DOMContentLoaded', () => {
     resetDateEl.style.display = 'none';
   }
 
-  /**
-   * Format an ISO-8601 date string for display.
-   * "2026-05-01T00:00:00.000Z" → "May 1, 2026"
-   */
   function formatResetDate(iso) {
     if (!iso) return '--';
     try {
@@ -79,49 +76,60 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  /**
-   * Format a token count for display.
-   * 123456 → "123,456"
-   */
-  function formatTokens(n) {
-    if (typeof n !== 'number') return '--';
-    return n.toLocaleString('en-US');
-  }
+  // ── Wake the service worker with a PING, then request usage data ──
 
-  // ── Request usage data from background ──
+  console.log('[Valor Popup] Opened. Sending PING to wake service worker.');
 
-  chrome.runtime.sendMessage({ type: 'GET_USAGE' }, function(response) {
-    if (chrome.runtime.lastError || !response) {
-      showError('Unable to reach background service.');
-      return;
+  chrome.runtime.sendMessage({ type: 'PING' }, function() {
+    // Ignore PING errors — the point is just to wake the worker.
+    if (chrome.runtime.lastError) {
+      console.log('[Valor Popup] PING error (may be normal):', chrome.runtime.lastError.message);
     }
 
-    if (response.error === 'no_key') {
-      showMessage('Add your API key in settings to get started');
-      return;
-    }
+    console.log('[Valor Popup] Sending GET_USAGE.');
 
-    if (response.error === 'invalid_key') {
-      showError('Unable to fetch usage. Check your API key.');
-      return;
-    }
+    chrome.runtime.sendMessage({ type: 'GET_USAGE' }, function(response) {
+      if (chrome.runtime.lastError) {
+        console.error('[Valor Popup] GET_USAGE error:', chrome.runtime.lastError.message);
+        showError('Unable to reach background service.');
+        return;
+      }
 
-    if (response.error === 'network_error') {
-      showError('Network error. Check your connection.');
-      return;
-    }
+      if (!response) {
+        console.error('[Valor Popup] GET_USAGE returned null.');
+        showError('Unable to reach background service.');
+        return;
+      }
 
-    if (!response.ok) {
-      showError('Unable to fetch usage. Check your API key.');
-      return;
-    }
+      console.log('[Valor Popup] GET_USAGE response:', JSON.stringify(response));
 
-    // ── Success: render live data ──
-    renderGauge(response.percentRemaining);
-    gaugeCaption.textContent = 'Claude usage remaining';
-    gaugeCaption.style.color = '';
-    resetDateEl.style.display = '';
-    resetDateValue.textContent = formatResetDate(response.resetDate);
+      if (response.error === 'no_key') {
+        showMessage('Add your API key in settings to get started');
+        return;
+      }
+
+      if (response.error === 'invalid_key') {
+        showError('Unable to fetch usage. Check your API key.');
+        return;
+      }
+
+      if (response.error === 'network_error') {
+        showError('Network error. Check your connection.');
+        return;
+      }
+
+      if (!response.ok) {
+        showError('Unable to fetch usage. Check your API key.');
+        return;
+      }
+
+      // ── Success: render live data ──
+      renderGauge(response.percentRemaining);
+      gaugeCaption.textContent = 'Claude usage remaining';
+      gaugeCaption.style.color = '';
+      resetDateEl.style.display = '';
+      resetDateValue.textContent = formatResetDate(response.resetDate);
+    });
   });
 
   // ── Credits: still placeholder until Supabase is wired up ──
@@ -130,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Button handlers ──
 
   buyBtn.addEventListener('click', function() {
-    console.log('[Valor Fuel Gauge] Buy More clicked — Stripe integration pending.');
+    console.log('[Valor Popup] Buy More clicked — Stripe integration pending.');
   });
 
   settingsBtn.addEventListener('click', function() {

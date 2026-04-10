@@ -2,6 +2,8 @@
 // All usage tracking is LOCAL in Chrome storage. No Anthropic usage endpoint exists.
 // The only API call is a one-time key validation on first load.
 
+console.log('[Valor] Service worker loaded.');
+
 importScripts('storage.js', 'api.js');
 
 var TRACKER_KEY = '_valor_token_tracker';
@@ -10,6 +12,7 @@ var DEFAULT_BUDGET = 100000; // 100,000 tokens per month
 // ── Lifecycle ──
 
 chrome.runtime.onInstalled.addListener(function() {
+  console.log('[Valor] onInstalled fired.');
   initTracker();
 });
 
@@ -29,6 +32,7 @@ async function initTracker() {
         keyValid: false
       }
     });
+    console.log('[Valor] Tracker initialized.');
   }
 }
 
@@ -45,6 +49,7 @@ async function getTracker() {
     tracker.periodStart = now.toISOString();
     tracker.resetDate = nextReset.toISOString();
     await ValorStorage.set({ [TRACKER_KEY]: tracker });
+    console.log('[Valor] Monthly period reset.');
   }
 
   return tracker;
@@ -80,16 +85,19 @@ async function validateOnce() {
     return { ok: false, error: 'no_key' };
   }
 
+  console.log('[Valor] Validating API key...');
   var result = await ValorAPI.validateKey(apiKey);
   var tracker = await getTracker();
 
   if (!result.ok) {
+    console.log('[Valor] Key validation failed:', result.error);
     tracker.keyValid = false;
     await ValorStorage.set({ [TRACKER_KEY]: tracker });
     return { ok: false, error: result.error };
   }
 
   // Key is valid. Record the tokens the validation probe consumed.
+  console.log('[Valor] Key valid. Probe used', result.tokensUsed, 'tokens.');
   tracker.keyValid = true;
   tracker.tokensUsed += result.tokensUsed;
   await ValorStorage.set({ [TRACKER_KEY]: tracker });
@@ -100,9 +108,18 @@ async function validateOnce() {
 // ── Message handler ──
 
 chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+  console.log('[Valor] Message received:', message.type);
+
+  if (message.type === 'PING') {
+    sendResponse({ ok: true });
+    return false;
+  }
 
   if (message.type === 'GET_USAGE') {
-    handleGetUsage().then(sendResponse);
+    handleGetUsage().then(function(data) {
+      console.log('[Valor] GET_USAGE response:', JSON.stringify(data));
+      sendResponse(data);
+    });
     return true;
   }
 
