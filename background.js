@@ -1,100 +1,137 @@
 // background.js — Valor AI Fuel Gauge service worker.
-// Polls the Anthropic API for usage data and serves it to the popup.
+// Validates API key, tracks token usage locally, serves data to popup.
+// Does NOT poll the Anthropic API for usage — all tracking is local.
 
 importScripts('storage.js', 'api.js');
 
-const ALARM_NAME = 'valor_usage_poll';
-const CACHE_KEY = '_valor_usage_cache';
+const TRACKER_KEY = '_valor_token_tracker';
+const DEFAULT_BUDGET = 1000000; // 1 million tokens per monthly period
 
-// ── Alarm setup ──
-// chrome.alarms persists across service-worker restarts.
-// Re-check on every wake to be safe.
+// ── Lifecycle ──
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('[Valor Background] onInstalled fired. Creating alarm and polling.');
-  chrome.alarms.create(ALARM_NAME, { periodInMinutes: 1 });
-  pollUsage();
+  initTracker();
 });
 
-chrome.runtime.onStartup.addListener(() => {
-  console.log('[Valor Background] onStartup fired.');
-  chrome.alarms.get(ALARM_NAME, (existing) => {
-    if (!existing) {
-      console.log('[Valor Background] Alarm missing on startup, recreating.');
-      chrome.alarms.create(ALARM_NAME, { periodInMinutes: 1 });
-    }
-  });
-});
+// ── Token tracker ──
 
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === ALARM_NAME) {
-    console.log('[Valor Background] Alarm fired. Polling usage.');
-    pollUsage();
-  }
-});
-
-// ── Usage polling ──
-
-async function pollUsage() {
-  console.log('[Valor Background] pollUsage() started.');
-  try {
-    const apiKey = await ValorStorage.loadApiKey();
-    console.log('[Valor Background] Decrypted key:', apiKey ? apiKey.substring(0, 10) + '...' : 'NULL — no key saved');
-
-    if (!apiKey) {
-      await ValorStorage.set({
-        [CACHE_KEY]: { ok: false, error: 'no_key', fetchedAt: Date.now() }
-      });
-      console.log('[Valor Background] No key found. Cached no_key state.');
-      return;
-    }
-
-    console.log('[Valor Background] Calling ValorAPI.fetchUsage()...');
-    const result = await ValorAPI.fetchUsage(apiKey);
-    console.log('[Valor Background] fetchUsage result:', JSON.stringify(result));
-    await ValorStorage.set({ [CACHE_KEY]: result });
-    console.log('[Valor Background] Result cached.');
-
-  } catch (err) {
-    console.error('[Valor Background] pollUsage() threw:', err.message, err.stack);
+async function initTracker() {
+  var stored = await ValorStorage.get([TRACKER_KEY]);
+  if (!stored[TRACKER_KEY]) {
+    var now = new Date();
+    var resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     await ValorStorage.set({
-      [CACHE_KEY]: { ok: false, error: 'fetch_failed', fetchedAt: Date.now() }
+      [TRACKER_KEY]: {
+        tokensUsed: 0,
+        tokenBudget: DEFAULT_BUDGET,
+        periodStart: now.toISOString(),
+        resetDate: resetDate.toISOString(),
+        keyValid: false
+      }
     });
   }
+}
+
+async function getTracker() {
+  await initTracker();
+  var stored = await ValorStorage.get([TRACKER_KEY]);
+  var tracker = stored[TRACKER_KEY];
+
+  // Reset if the monthly period has elapsed.
+  if (new Date() >= new Date(tracker.resetDate)) {
+    var now = new Date();
+    var nextReset = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    tracker.tokensUsed = 0;
+    tracker.periodStart = now.toISOString();
+    tracker.resetDate = nextReset.toISOString();
+    await ValorStorage.set({ [TRACKER_KEY]: tracker });
+  }
+
+  return tracker;
+}
+
+async function addTokens(count) {
+  var tracker = await getTracker();
+  tracker.tokensUsed += count;
+  await ValorStorage.set({ [TRACKER_KEY]: tracker });
+  return tracker;
+}
+
+// ── Key validation (one-time per key save, not polling) ──
+
+async function validateAndCache() {
+  var apiKey = await ValorStorage.loadApiKey();
+  if (!apiKey) {
+    return { ok: false, error: 'no_key' };
+  }
+
+  var result = await ValorAPI.validateKey(apiKey);
+
+  var tracker = await getTracker();
+
+  if (!result.ok) {
+    tracker.keyValid = false;
+    await ValorStorage.set({ [TRACKER_KEY]: tracker });
+    return { ok: false, error: result.error };
+  }
+
+  // Key is valid. Record the tokens the validation probe used.
+  tracker.keyValid = true;
+  tracker.tokensUsed += result.tokensUsed;
+  await ValorStorage.set({ [TRACKER_KEY]: tracker });
+
+  return buildUsageResponse(tracker);
+}
+
+function buildUsageResponse(tracker) {
+  var remaining = tracker.tokenBudget - tracker.tokensUsed;
+  if (remaining < 0) remaining = 0;
+  var pct = Math.round((remaining / tracker.tokenBudget) * 100);
+
+  return {
+    ok: true,
+    percentRemaining: pct,
+    tokensUsed: tracker.tokensUsed,
+    tokenBudget: tracker.tokenBudget,
+    resetDate: tracker.resetDate,
+    fetchedAt: Date.now()
+  };
 }
 
 // ── Message handler ──
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('[Valor Background] Message received:', message.type);
 
   if (message.type === 'GET_USAGE') {
-    handleGetUsage().then(function(data) {
-      console.log('[Valor Background] Responding to GET_USAGE:', JSON.stringify(data));
-      sendResponse(data);
-    });
-    return true; // Keep channel open for async response.
+    handleGetUsage().then(sendResponse);
+    return true;
   }
 
-  if (message.type === 'FORCE_POLL') {
-    pollUsage().then(() => {
-      handleGetUsage().then(sendResponse);
+  if (message.type === 'RECORD_TOKENS') {
+    addTokens(message.tokens).then(function(tracker) {
+      sendResponse(buildUsageResponse(tracker));
     });
+    return true;
+  }
+
+  if (message.type === 'FORCE_VALIDATE') {
+    validateAndCache().then(sendResponse);
     return true;
   }
 });
 
 async function handleGetUsage() {
-  const stored = await ValorStorage.get([CACHE_KEY]);
-  const cached = stored[CACHE_KEY];
-
-  // If there is no cache at all, do an immediate poll.
-  if (!cached) {
-    console.log('[Valor Background] No cache found. Triggering immediate poll.');
-    await pollUsage();
-    const fresh = await ValorStorage.get([CACHE_KEY]);
-    return fresh[CACHE_KEY] || { ok: false, error: 'no_data' };
+  var apiKey = await ValorStorage.loadApiKey();
+  if (!apiKey) {
+    return { ok: false, error: 'no_key' };
   }
 
-  return cached;
+  var tracker = await getTracker();
+
+  // If the key has never been validated, validate it now.
+  if (!tracker.keyValid) {
+    return validateAndCache();
+  }
+
+  return buildUsageResponse(tracker);
 }

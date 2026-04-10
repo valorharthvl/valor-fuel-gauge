@@ -1,104 +1,69 @@
 // api.js — Valor AI Fuel Gauge API helper.
 // All external calls are routed through here. No DOM scraping.
+// REQUIRED: Every Anthropic fetch must include anthropic-dangerous-direct-browser-access header.
 
 const ValorAPI = {
 
   /**
-   * Fetch real-time usage data from the Anthropic API.
-   *
-   * Makes a minimal one-token request to the Messages endpoint and reads
-   * the rate-limit headers that come back. These headers tell us how much
-   * token capacity remains in the current rate-limit window.
-   *
-   *   anthropic-ratelimit-tokens-limit      → total tokens allowed
-   *   anthropic-ratelimit-tokens-remaining   → tokens still available
-   *   anthropic-ratelimit-tokens-reset       → ISO-8601 reset timestamp
-   *
-   * Uses claude-haiku-4-5 to keep the probe as cheap as possible.
-   *
-   * @param {string} apiKey  — Decrypted Anthropic API key.
-   * @returns {Promise<Object>}
+   * Build the standard headers for every Anthropic API call.
+   * @param {string} apiKey — Decrypted Anthropic API key.
+   * @returns {Object}
    */
-  async fetchUsage(apiKey) {
-    const url = 'https://api.anthropic.com/v1/messages';
-    console.log('[ValorAPI] Endpoint URL:', url);
-    console.log('[ValorAPI] API key prefix:', apiKey ? apiKey.substring(0, 10) + '...' : 'NULL/EMPTY');
+  _headers(apiKey) {
+    return {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    };
+  },
 
+  /**
+   * Validate an API key by making a minimal one-token request.
+   * Returns the token count consumed so the local tracker can record it.
+   *
+   * @param {string} apiKey
+   * @returns {Promise<Object>}  { ok, tokensUsed } or { ok:false, error }
+   */
+  async validateKey(apiKey) {
     var response;
     try {
-      response = await fetch(url, {
+      response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01'
-        },
+        headers: this._headers(apiKey),
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 1,
           messages: [{ role: 'user', content: '.' }]
         })
       });
-    } catch (networkErr) {
-      console.error('[ValorAPI] Network error (fetch threw):', networkErr.message);
-      return { ok: false, error: 'network_error', message: networkErr.message };
+    } catch (err) {
+      console.error('[ValorAPI] validateKey network error:', err.message);
+      return { ok: false, error: 'network_error' };
     }
 
-    console.log('[ValorAPI] HTTP status:', response.status, response.statusText);
-
-    // Log the full response body so we can see Anthropic's error message.
-    var bodyText;
-    try {
-      bodyText = await response.clone().text();
-      console.log('[ValorAPI] Response body:', bodyText);
-    } catch (e) {
-      console.warn('[ValorAPI] Could not read response body:', e.message);
-    }
-
-    // Log every response header for debugging.
-    console.log('[ValorAPI] Response headers:');
-    response.headers.forEach(function(value, name) {
-      console.log('  ', name + ':', value);
-    });
-
-    // 401 means the key is invalid or revoked.
     if (response.status === 401) {
       return { ok: false, error: 'invalid_key' };
     }
 
-    // Read rate-limit headers (present on 200 and 429 responses).
-    const tokensLimit = parseInt(
-      response.headers.get('anthropic-ratelimit-tokens-limit') || '0', 10
-    );
-    const tokensRemaining = parseInt(
-      response.headers.get('anthropic-ratelimit-tokens-remaining') || '0', 10
-    );
-    const tokensReset = response.headers.get('anthropic-ratelimit-tokens-reset') || '';
-
-    console.log('[ValorAPI] Parsed rate-limit values:',
-      'limit=' + tokensLimit,
-      'remaining=' + tokensRemaining,
-      'reset=' + tokensReset
-    );
-
-    // If we got zero for both, the headers were missing entirely.
-    if (tokensLimit === 0 && tokensRemaining === 0) {
-      return { ok: false, error: 'no_headers' };
+    if (!response.ok) {
+      console.error('[ValorAPI] validateKey HTTP', response.status);
+      return { ok: false, error: 'api_error' };
     }
 
-    const percentRemaining = tokensLimit > 0
-      ? Math.round((tokensRemaining / tokensLimit) * 100)
-      : 0;
+    var body;
+    try {
+      body = await response.json();
+    } catch (e) {
+      return { ok: true, tokensUsed: 0 };
+    }
 
-    return {
-      ok: true,
-      percentRemaining: percentRemaining,
-      tokensLimit: tokensLimit,
-      tokensRemaining: tokensRemaining,
-      tokensUsed: tokensLimit - tokensRemaining,
-      resetDate: tokensReset,
-      fetchedAt: Date.now()
-    };
+    var used = 0;
+    if (body && body.usage) {
+      used = (body.usage.input_tokens || 0) + (body.usage.output_tokens || 0);
+    }
+
+    return { ok: true, tokensUsed: used };
   },
 
   /**
@@ -106,17 +71,18 @@ const ValorAPI = {
    * Placeholder: not yet implemented.
    */
   async purchaseActionPack() {
-    console.log('[ValorAPI] purchaseActionPack called — not yet implemented.');
+    console.log('[ValorAPI] purchaseActionPack — not yet implemented.');
     return { ok: false, message: 'Stripe integration pending.' };
   },
 
   /**
    * Run a quick summary action via the Anthropic API.
    * Placeholder: not yet implemented.
+   * @param {string} apiKey
    * @param {string} text
    */
-  async runSummaryAction(text) {
-    console.log('[ValorAPI] runSummaryAction called — not yet implemented.');
+  async runSummaryAction(apiKey, text) {
+    console.log('[ValorAPI] runSummaryAction — not yet implemented.');
     return { ok: false, message: 'Anthropic integration pending.' };
   },
 
@@ -126,7 +92,7 @@ const ValorAPI = {
    * @param {string} email
    */
   async sendOnboardingEmail(email) {
-    console.log('[ValorAPI] sendOnboardingEmail called — not yet implemented.');
+    console.log('[ValorAPI] sendOnboardingEmail — not yet implemented.');
     return { ok: false, message: 'Resend integration pending.' };
   }
 };

@@ -1,22 +1,22 @@
 // popup.js — Valor AI Fuel Gauge popup logic.
-// Reads live usage data from the background service worker.
+// Reads local token tracking data from the background service worker.
 
 document.addEventListener('DOMContentLoaded', () => {
 
   // ── DOM references ──
-  const gaugeArc = document.getElementById('gauge-arc');
-  const gaugePercent = document.getElementById('gauge-percent');
-  const gaugePercentSign = document.getElementById('gauge-percent-sign');
-  const gaugeCaption = document.getElementById('gauge-caption');
-  const resetDateEl = document.getElementById('reset-date');
-  const resetDateValue = document.getElementById('reset-date-value');
-  const creditsValue = document.getElementById('credits-value');
-  const buyBtn = document.getElementById('buy-btn');
-  const settingsBtn = document.getElementById('settings-btn');
+  var gaugeArc = document.getElementById('gauge-arc');
+  var gaugePercent = document.getElementById('gauge-percent');
+  var gaugePercentSign = document.getElementById('gauge-percent-sign');
+  var gaugeCaption = document.getElementById('gauge-caption');
+  var resetDateEl = document.getElementById('reset-date');
+  var resetDateValue = document.getElementById('reset-date-value');
+  var creditsValue = document.getElementById('credits-value');
+  var buyBtn = document.getElementById('buy-btn');
+  var settingsBtn = document.getElementById('settings-btn');
 
   // ── Gauge constants ──
-  const RADIUS = 68;
-  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+  var RADIUS = 68;
+  var CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
   function gaugeColor(pct) {
     if (pct > 50) return '#4ade80';
@@ -25,9 +25,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderGauge(pct) {
-    const clamped = Math.max(0, Math.min(100, pct));
-    const offset = CIRCUMFERENCE - (clamped / 100) * CIRCUMFERENCE;
-    const color = gaugeColor(clamped);
+    var clamped = Math.max(0, Math.min(100, pct));
+    var offset = CIRCUMFERENCE - (clamped / 100) * CIRCUMFERENCE;
+    var color = gaugeColor(clamped);
 
     gaugeArc.style.strokeDasharray = CIRCUMFERENCE;
     gaugeArc.style.strokeDashoffset = offset;
@@ -50,6 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function showMessage(text) {
     renderEmpty();
     gaugeCaption.textContent = text;
+    gaugeCaption.style.color = '';
     resetDateEl.style.display = 'none';
   }
 
@@ -61,26 +62,35 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
-   * Format an ISO-8601 timestamp into a readable string.
-   * "2026-04-10T16:00:00Z" → "Apr 10, 4:00 PM"
+   * Format an ISO-8601 date string for display.
+   * "2026-05-01T00:00:00.000Z" → "May 1, 2026"
    */
   function formatResetDate(iso) {
     if (!iso) return '--';
     try {
-      const d = new Date(iso);
+      var d = new Date(iso);
       if (isNaN(d.getTime())) return '--';
       var month = d.toLocaleString('en-US', { month: 'short' });
       var day = d.getDate();
-      var time = d.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-      return month + ' ' + day + ', ' + time;
+      var year = d.getFullYear();
+      return month + ' ' + day + ', ' + year;
     } catch (e) {
       return '--';
     }
   }
 
+  /**
+   * Format a token count for display.
+   * 123456 → "123,456"
+   */
+  function formatTokens(n) {
+    if (typeof n !== 'number') return '--';
+    return n.toLocaleString('en-US');
+  }
+
   // ── Request usage data from background ──
 
-  chrome.runtime.sendMessage({ type: 'GET_USAGE' }, (response) => {
+  chrome.runtime.sendMessage({ type: 'GET_USAGE' }, function(response) {
     if (chrome.runtime.lastError || !response) {
       showError('Unable to reach background service.');
       return;
@@ -93,6 +103,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (response.error === 'invalid_key') {
       showError('Unable to fetch usage. Check your API key.');
+      return;
+    }
+
+    if (response.error === 'network_error') {
+      showError('Network error. Check your connection.');
       return;
     }
 
@@ -114,11 +129,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Button handlers ──
 
-  buyBtn.addEventListener('click', () => {
+  buyBtn.addEventListener('click', function() {
     console.log('[Valor Fuel Gauge] Buy More clicked — Stripe integration pending.');
   });
 
-  settingsBtn.addEventListener('click', () => {
+  settingsBtn.addEventListener('click', function() {
     chrome.runtime.openOptionsPage();
   });
 });
