@@ -6,71 +6,259 @@
   <title>Valor AI Fuel Gauge — Settings</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background: #0f172a;
+      background: #0b1120;
       color: #e2e8f0;
-      padding: 32px;
-      max-width: 520px;
+      padding: 40px 24px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 480px;
       margin: 0 auto;
     }
-    h1 {
-      font-size: 20px;
-      font-weight: 600;
-      color: #38bdf8;
-      margin-bottom: 24px;
+
+    /* ── Header ── */
+    .page-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
     }
-    .field {
+
+    .page-logo {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #d4a574, #c4956a);
+      color: #fff;
+      font-size: 17px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .page-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: #131c31;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 4px;
+    }
+
+    .card-desc {
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    /* ── Input ── */
+    .input-group {
       margin-bottom: 16px;
     }
-    label {
+
+    .input-label {
       display: block;
-      font-size: 13px;
+      font-size: 12px;
+      font-weight: 500;
       color: #94a3b8;
       margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
-    input[type="text"], input[type="email"] {
+
+    .input-field {
       width: 100%;
-      padding: 8px 12px;
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 6px;
+      padding: 10px 14px;
+      background: #0b1120;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
       color: #e2e8f0;
       font-size: 14px;
+      font-family: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
+      transition: border-color 0.15s;
     }
-    input:focus {
+
+    .input-field::placeholder {
+      color: #334155;
+    }
+
+    .input-field:focus {
       outline: none;
-      border-color: #38bdf8;
+      border-color: #3b82f6;
     }
-    button {
-      background: #38bdf8;
-      color: #0f172a;
-      border: none;
-      border-radius: 6px;
-      padding: 10px 20px;
+
+    /* ── Saved key display ── */
+    .saved-key-display {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: #0b1120;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    .saved-key-display.visible {
+      display: flex;
+    }
+
+    .saved-key-mask {
+      flex: 1;
       font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 8px;
+      font-family: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
+      color: #64748b;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
-    button:hover { background: #7dd3fc; }
-    #save-status {
-      font-size: 13px;
+
+    .saved-key-badge {
+      font-size: 11px;
+      font-weight: 600;
       color: #4ade80;
-      margin-top: 12px;
+      background: rgba(74, 222, 128, 0.1);
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* ── Buttons ── */
+    .btn-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-primary {
+      background: #3b82f6;
+      color: #fff;
+    }
+
+    .btn-primary:hover { background: #2563eb; }
+    .btn-primary:active { background: #1d4ed8; }
+
+    .btn-danger {
+      background: none;
+      border: 1px solid #334155;
+      color: #94a3b8;
+    }
+
+    .btn-danger:hover {
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+
+    /* ── Status messages ── */
+    .status-msg {
+      font-size: 13px;
+      margin-top: 14px;
+      min-height: 20px;
+      line-height: 20px;
+    }
+
+    .status-msg.success { color: #4ade80; }
+    .status-msg.error   { color: #ef4444; }
+
+    /* ── Security note ── */
+    .security-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-top: 24px;
+      padding: 12px 14px;
+      background: rgba(59, 130, 246, 0.06);
+      border: 1px solid rgba(59, 130, 246, 0.15);
+      border-radius: 8px;
+    }
+
+    .security-note svg {
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .security-note p {
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.5;
     }
   </style>
 </head>
 <body>
-  <h1>Settings</h1>
+  <div class="container">
 
-  <div class="field">
-    <label for="user-email">Email (for account lookup)</label>
-    <input type="email" id="user-email" placeholder="you@example.com">
+    <div class="page-header">
+      <div class="page-logo">C</div>
+      <h1 class="page-title">Valor AI Fuel Gauge</h1>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Anthropic API Key</h2>
+      <p class="card-desc">Your key is encrypted with AES-256 and stored locally. It never leaves your device.</p>
+
+      <div class="input-group" id="input-group">
+        <label class="input-label" for="api-key-input">API Key</label>
+        <input
+          type="password"
+          id="api-key-input"
+          class="input-field"
+          placeholder="sk-ant-api03-..."
+          autocomplete="off"
+          spellcheck="false"
+        >
+      </div>
+
+      <div class="saved-key-display" id="saved-key-display">
+        <span class="saved-key-mask" id="saved-key-mask"></span>
+        <span class="saved-key-badge">Saved</span>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="save-btn" type="button">Save</button>
+        <button class="btn btn-danger" id="clear-btn" type="button">Clear</button>
+      </div>
+
+      <p class="status-msg" id="status-msg"></p>
+
+      <div class="security-note">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <p>Your API key is encrypted using AES-256-GCM via the Web Crypto API before being saved to Chrome local storage. It is never transmitted to any server.</p>
+      </div>
+    </div>
+
   </div>
-
-  <button id="save-btn" type="button">Save</button>
-  <p id="save-status"></p>
 
   <script src="storage.js"></script>
   <script src="options.js"></script>
