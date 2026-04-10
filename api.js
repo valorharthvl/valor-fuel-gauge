@@ -20,18 +20,45 @@ const ValorAPI = {
    * @returns {Promise<Object>}
    */
   async fetchUsage(apiKey) {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1,
-        messages: [{ role: 'user', content: '.' }]
-      })
+    const url = 'https://api.anthropic.com/v1/messages';
+    console.log('[ValorAPI] Endpoint URL:', url);
+    console.log('[ValorAPI] API key prefix:', apiKey ? apiKey.substring(0, 10) + '...' : 'NULL/EMPTY');
+
+    var response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1,
+          messages: [{ role: 'user', content: '.' }]
+        })
+      });
+    } catch (networkErr) {
+      console.error('[ValorAPI] Network error (fetch threw):', networkErr.message);
+      return { ok: false, error: 'network_error', message: networkErr.message };
+    }
+
+    console.log('[ValorAPI] HTTP status:', response.status, response.statusText);
+
+    // Log the full response body so we can see Anthropic's error message.
+    var bodyText;
+    try {
+      bodyText = await response.clone().text();
+      console.log('[ValorAPI] Response body:', bodyText);
+    } catch (e) {
+      console.warn('[ValorAPI] Could not read response body:', e.message);
+    }
+
+    // Log every response header for debugging.
+    console.log('[ValorAPI] Response headers:');
+    response.headers.forEach(function(value, name) {
+      console.log('  ', name + ':', value);
     });
 
     // 401 means the key is invalid or revoked.
@@ -47,6 +74,12 @@ const ValorAPI = {
       response.headers.get('anthropic-ratelimit-tokens-remaining') || '0', 10
     );
     const tokensReset = response.headers.get('anthropic-ratelimit-tokens-reset') || '';
+
+    console.log('[ValorAPI] Parsed rate-limit values:',
+      'limit=' + tokensLimit,
+      'remaining=' + tokensRemaining,
+      'reset=' + tokensReset
+    );
 
     // If we got zero for both, the headers were missing entirely.
     if (tokensLimit === 0 && tokensRemaining === 0) {
