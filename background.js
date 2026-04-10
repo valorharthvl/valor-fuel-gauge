@@ -1,20 +1,84 @@
-// background.js — Valor AI Fuel Gauge service worker
-// Handles extension lifecycle events, alarms, and message routing.
+// background.js — Valor AI Fuel Gauge service worker.
+// Polls the Anthropic API for usage data and serves it to the popup.
 
-chrome.runtime.onInstalled.addListener((details) => {
-  if (details.reason === 'install') {
-    console.log('[Valor Fuel Gauge] Extension installed.');
-  } else if (details.reason === 'update') {
-    console.log('[Valor Fuel Gauge] Extension updated to', chrome.runtime.getManifest().version);
+importScripts('storage.js', 'api.js');
+
+const ALARM_NAME = 'valor_usage_poll';
+const CACHE_KEY = '_valor_usage_cache';
+
+// ── Alarm setup ──
+// chrome.alarms persists across service-worker restarts.
+// Re-check on every wake to be safe.
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.alarms.create(ALARM_NAME, { periodInMinutes: 1 });
+  pollUsage();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  chrome.alarms.get(ALARM_NAME, (existing) => {
+    if (!existing) {
+      chrome.alarms.create(ALARM_NAME, { periodInMinutes: 1 });
+    }
+  });
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === ALARM_NAME) {
+    pollUsage();
   }
 });
 
-// Central message router — all popup/content/options messages arrive here.
+// ── Usage polling ──
+
+async function pollUsage() {
+  try {
+    const apiKey = await ValorStorage.loadApiKey();
+
+    if (!apiKey) {
+      await ValorStorage.set({
+        [CACHE_KEY]: { ok: false, error: 'no_key', fetchedAt: Date.now() }
+      });
+      return;
+    }
+
+    const result = await ValorAPI.fetchUsage(apiKey);
+    await ValorStorage.set({ [CACHE_KEY]: result });
+
+  } catch (err) {
+    console.error('[Valor Background] Poll failed:', err);
+    await ValorStorage.set({
+      [CACHE_KEY]: { ok: false, error: 'fetch_failed', fetchedAt: Date.now() }
+    });
+  }
+}
+
+// ── Message handler ──
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'GET_STATUS') {
-    // Placeholder: will return usage status from Supabase in a later step.
-    sendResponse({ ok: true, status: 'ready' });
+  if (message.type === 'GET_USAGE') {
+    handleGetUsage().then(sendResponse);
+    return true; // Keep channel open for async response.
   }
-  // Return true to keep the message channel open for async responses.
-  return true;
+
+  if (message.type === 'FORCE_POLL') {
+    pollUsage().then(() => {
+      handleGetUsage().then(sendResponse);
+    });
+    return true;
+  }
 });
+
+async function handleGetUsage() {
+  const stored = await ValorStorage.get([CACHE_KEY]);
+  const cached = stored[CACHE_KEY];
+
+  // If there is no cache at all, do an immediate poll.
+  if (!cached) {
+    await pollUsage();
+    const fresh = await ValorStorage.get([CACHE_KEY]);
+    return fresh[CACHE_KEY] || { ok: false, error: 'no_data' };
+  }
+
+  return cached;
+}

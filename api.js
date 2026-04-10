@@ -1,49 +1,98 @@
 // api.js — Valor AI Fuel Gauge API helper.
-// All external calls (Supabase, Vercel backend, Anthropic) are routed through here.
-// Nothing is live yet — every function returns a placeholder response.
+// All external calls are routed through here. No DOM scraping.
 
 const ValorAPI = {
+
   /**
-   * Fetch the user's current usage status from the backend.
-   * Placeholder: returns a mock object.
+   * Fetch real-time usage data from the Anthropic API.
+   *
+   * Makes a minimal one-token request to the Messages endpoint and reads
+   * the rate-limit headers that come back. These headers tell us how much
+   * token capacity remains in the current rate-limit window.
+   *
+   *   anthropic-ratelimit-tokens-limit      → total tokens allowed
+   *   anthropic-ratelimit-tokens-remaining   → tokens still available
+   *   anthropic-ratelimit-tokens-reset       → ISO-8601 reset timestamp
+   *
+   * Uses claude-haiku-4-5 to keep the probe as cheap as possible.
+   *
+   * @param {string} apiKey  — Decrypted Anthropic API key.
    * @returns {Promise<Object>}
    */
-  async getUsageStatus() {
-    // TODO: Replace with real Supabase/Vercel call.
-    return { actionsRemaining: 0, plan: 'none' };
+  async fetchUsage(apiKey) {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1,
+        messages: [{ role: 'user', content: '.' }]
+      })
+    });
+
+    // 401 means the key is invalid or revoked.
+    if (response.status === 401) {
+      return { ok: false, error: 'invalid_key' };
+    }
+
+    // Read rate-limit headers (present on 200 and 429 responses).
+    const tokensLimit = parseInt(
+      response.headers.get('anthropic-ratelimit-tokens-limit') || '0', 10
+    );
+    const tokensRemaining = parseInt(
+      response.headers.get('anthropic-ratelimit-tokens-remaining') || '0', 10
+    );
+    const tokensReset = response.headers.get('anthropic-ratelimit-tokens-reset') || '';
+
+    // If we got zero for both, the headers were missing entirely.
+    if (tokensLimit === 0 && tokensRemaining === 0) {
+      return { ok: false, error: 'no_headers' };
+    }
+
+    const percentRemaining = tokensLimit > 0
+      ? Math.round((tokensRemaining / tokensLimit) * 100)
+      : 0;
+
+    return {
+      ok: true,
+      percentRemaining: percentRemaining,
+      tokensLimit: tokensLimit,
+      tokensRemaining: tokensRemaining,
+      tokensUsed: tokensLimit - tokensRemaining,
+      resetDate: tokensReset,
+      fetchedAt: Date.now()
+    };
   },
 
   /**
    * Purchase an action pack via Stripe checkout.
-   * Placeholder: logs intent and resolves.
-   * @returns {Promise<Object>}
+   * Placeholder: not yet implemented.
    */
   async purchaseActionPack() {
-    // TODO: Replace with Stripe checkout session creation via Vercel endpoint.
     console.log('[ValorAPI] purchaseActionPack called — not yet implemented.');
     return { ok: false, message: 'Stripe integration pending.' };
   },
 
   /**
    * Run a quick summary action via the Anthropic API.
-   * Placeholder: resolves with a stub.
-   * @param {string} text - The text to summarize.
-   * @returns {Promise<Object>}
+   * Placeholder: not yet implemented.
+   * @param {string} text
    */
   async runSummaryAction(text) {
-    // TODO: Replace with real Anthropic API call via Vercel proxy.
     console.log('[ValorAPI] runSummaryAction called — not yet implemented.');
     return { ok: false, message: 'Anthropic integration pending.' };
   },
 
   /**
    * Send an onboarding email via Resend.
-   * Placeholder: resolves with a stub.
+   * Placeholder: not yet implemented.
    * @param {string} email
-   * @returns {Promise<Object>}
    */
   async sendOnboardingEmail(email) {
-    // TODO: Replace with Resend call via Vercel endpoint.
     console.log('[ValorAPI] sendOnboardingEmail called — not yet implemented.');
     return { ok: false, message: 'Resend integration pending.' };
   }
