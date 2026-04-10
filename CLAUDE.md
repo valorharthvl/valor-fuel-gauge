@@ -12,6 +12,7 @@ A Manifest V3 Chrome extension that shows Claude AI users their real-time usage 
 - All terminal commands must be Chromebook Linux compatible.
 - Always push to branch: claude/valor-ai-fuel-gauge-R9Wwa
 - After delivering files always provide exact terminal commands to push to the branch.
+- When diagnosing bugs, always review the complete console output and full error details before proposing a fix. Do not propose fixes based on partial information.
 
 ## Current Stack
 - Chrome Extension Manifest V3
