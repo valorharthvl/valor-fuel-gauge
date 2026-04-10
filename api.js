@@ -31,7 +31,7 @@ var ValorAPI = {
         method: 'POST',
         headers: this._headers(apiKey),
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
+          model: 'claude-haiku-20240307',
           max_tokens: 1,
           messages: [{ role: 'user', content: '.' }]
         })
@@ -40,11 +40,15 @@ var ValorAPI = {
       return { ok: false, error: 'network_error' };
     }
 
+    console.log('[ValorAPI] validateKey HTTP status:', response.status);
+
     if (response.status === 401) {
       return { ok: false, error: 'invalid_key' };
     }
 
     if (!response.ok) {
+      var errorBody = await response.text();
+      console.log('[ValorAPI] validateKey error body:', errorBody);
       return { ok: false, error: 'api_error' };
     }
 
