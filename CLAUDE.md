@@ -34,6 +34,7 @@ All credentials are in ~/valor-fuel-gauge/.env
 - The options page API key input must accept minimum 200 characters. Full Anthropic keys are approximately 108 characters.
 - API keys cannot be retrieved from the Anthropic console after creation. Full key lives in .env file only.
 - Do not use the messages endpoint for usage checking. Track usage locally.
+- Correct Anthropic model string for validation calls is claude-haiku-4-5-20251001. Do not use claude-haiku-20240307 as it returns 404.
 
 ## Completed Steps
 - Step 1: File structure and manifest complete and loading in Chrome
