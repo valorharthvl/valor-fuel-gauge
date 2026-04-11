@@ -8,14 +8,12 @@ importScripts('storage.js', 'api.js');
 
 var TRACKER_KEY = '_valor_token_tracker';
 var CREDITS_KEY = 'valor_action_credits';
+var CREDITED_SESSIONS_KEY = '_valor_credited_sessions';
 var DEFAULT_BUDGET = 100000;
 var FREE_CREDITS = 5;
 
 // ══════════════════════════════════════════
 // Actions Registry
-// Each handler receives (apiKey, content, options) and returns
-// { ok, result, tokensUsed } or { ok: false, error }.
-// To add a new action: add a key here and a message handler below.
 // ══════════════════════════════════════════
 
 var actionsRegistry = {
@@ -115,6 +113,31 @@ async function deductCredit() {
   var newBalance = balance - 1;
   await ValorStorage.set({ [CREDITS_KEY]: newBalance });
   return { ok: true, credits: newBalance };
+}
+
+// Session dedup: prevents double-crediting when both the success page
+// (external messaging) and checkout-listener.js (internal messaging) fire.
+async function handleAddCredits(message) {
+  var amount = message.credits || 0;
+  var sessionId = message.session_id || '';
+
+  if (amount <= 0) {
+    return { ok: false, error: 'invalid_amount' };
+  }
+
+  if (sessionId) {
+    var stored = await ValorStorage.get([CREDITED_SESSIONS_KEY]);
+    var credited = stored[CREDITED_SESSIONS_KEY] || [];
+    if (credited.indexOf(sessionId) !== -1) {
+      console.log('[Valor] Session already credited:', sessionId);
+      var balance = await getCredits();
+      return { ok: true, credits: balance, already_credited: true };
+    }
+    credited.push(sessionId);
+    await ValorStorage.set({ [CREDITED_SESSIONS_KEY]: credited });
+  }
+
+  return addCredits(amount);
 }
 
 // ══════════════════════════════════════════
@@ -268,7 +291,7 @@ async function handleSummarize() {
 }
 
 // ══════════════════════════════════════════
-// Message handler
+// Internal message handler (from popup, content scripts)
 // ══════════════════════════════════════════
 
 chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
@@ -297,12 +320,7 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
   }
 
   if (message.type === 'ADD_CREDITS') {
-    var amount = message.credits || 0;
-    if (amount > 0) {
-      addCredits(amount).then(sendResponse);
-    } else {
-      sendResponse({ ok: false, error: 'invalid_amount' });
-    }
+    handleAddCredits(message).then(sendResponse);
     return true;
   }
 
@@ -323,6 +341,23 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
     return true;
   }
 });
+
+// ══════════════════════════════════════════
+// External message handler (from success page via externally_connectable)
+// ══════════════════════════════════════════
+
+chrome.runtime.onMessageExternal.addListener(function(message, sender, sendResponse) {
+  console.log('[Valor] External message received:', message.type, 'from:', sender.url);
+
+  if (message.type === 'ADD_CREDITS') {
+    handleAddCredits(message).then(sendResponse);
+    return true;
+  }
+
+  sendResponse({ ok: false, error: 'unknown_message' });
+});
+
+// ══════════════════════════════════════════
 
 async function handleGetUsage() {
   var apiKey = await ValorStorage.loadApiKey();

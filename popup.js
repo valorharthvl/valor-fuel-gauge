@@ -1,7 +1,7 @@
 // popup.js — Valor AI Fuel Gauge popup logic.
 // Reads local token tracking data and action pack credits from the background service worker.
 // Handles the Summarize action button and displays results.
-// Buy More opens Vercel-hosted Stripe checkout in a new tab.
+// Buy More opens Vercel-hosted Stripe checkout in a new tab with extension ID.
 
 document.addEventListener('DOMContentLoaded', function() {
 
@@ -212,10 +212,12 @@ document.addEventListener('DOMContentLoaded', function() {
     resultText.textContent = '';
   });
 
-  // ── Buy More — opens Stripe checkout in a new tab ──
+  // ── Buy More — opens Stripe checkout with extension ID in URL ──
 
   buyBtn.addEventListener('click', function() {
-    chrome.tabs.create({ url: CHECKOUT_URL });
+    var extId = chrome.runtime.id;
+    var url = CHECKOUT_URL + '?ext=' + encodeURIComponent(extId);
+    chrome.tabs.create({ url: url });
   });
 
   // ── Settings ──

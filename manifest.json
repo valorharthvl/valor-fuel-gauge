@@ -13,6 +13,12 @@
   "host_permissions": [
     "https://api.anthropic.com/*"
   ],
+  "externally_connectable": {
+    "matches": [
+      "https://valor-checkout.vercel.app/*",
+      "https://*.vercel.app/*"
+    ]
+  },
   "background": {
     "service_worker": "background.js"
   },

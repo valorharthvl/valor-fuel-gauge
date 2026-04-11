@@ -68,5 +68,72 @@
     <p id="status">Verifying and adding credits...</p>
     <p class="note">You can close this tab after credits are added.</p>
   </div>
+
+  <script>
+    (function() {
+      var statusEl = document.getElementById('status');
+      var spinnerEl = document.getElementById('spinner');
+      var params = new URLSearchParams(window.location.search);
+      var sessionId = params.get('session_id');
+      var extId = params.get('ext');
+
+      if (!sessionId || !extId) {
+        spinnerEl.style.display = 'none';
+        statusEl.textContent = 'Missing session or extension info.';
+        statusEl.className = 'error-text';
+        return;
+      }
+
+      // Step 1: Verify the payment server-side.
+      fetch('/api/verify-session?session_id=' + encodeURIComponent(sessionId))
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (!data.ok) {
+            spinnerEl.style.display = 'none';
+            statusEl.textContent = 'Verification failed: ' + (data.error || 'Unknown error');
+            statusEl.className = 'error-text';
+            return;
+          }
+
+          var credits = data.credits || 50;
+
+          // Step 2: Send credits to the extension via external messaging.
+          // Requires externally_connectable in the extension manifest.
+          if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+            chrome.runtime.sendMessage(
+              extId,
+              { type: 'ADD_CREDITS', credits: credits, session_id: sessionId },
+              function(response) {
+                spinnerEl.style.display = 'none';
+
+                if (chrome.runtime.lastError) {
+                  console.log('External message error:', chrome.runtime.lastError.message);
+                  statusEl.textContent = credits + ' credits verified! Reopen the extension popup to see your balance.';
+                  statusEl.className = 'success-text';
+                  return;
+                }
+
+                if (response && response.ok) {
+                  statusEl.textContent = credits + ' credits added! New balance: ' + response.credits;
+                  statusEl.className = 'success-text';
+                } else {
+                  statusEl.textContent = credits + ' credits verified! Reopen the extension popup to see your balance.';
+                  statusEl.className = 'success-text';
+                }
+              }
+            );
+          } else {
+            spinnerEl.style.display = 'none';
+            statusEl.textContent = credits + ' credits verified! Reopen the extension popup to see your balance.';
+            statusEl.className = 'success-text';
+          }
+        })
+        .catch(function(err) {
+          spinnerEl.style.display = 'none';
+          statusEl.textContent = 'Verification error. Please contact support.';
+          statusEl.className = 'error-text';
+        });
+    })();
+  </script>
 </body>
 </html>

@@ -10,6 +10,26 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    // Read the extension ID passed from the checkout page.
+    var ext = '';
+    if (req.body && req.body.ext) {
+      ext = req.body.ext;
+    }
+
+    var baseUrl = process.env.VERCEL_URL
+      ? 'https://' + process.env.VERCEL_URL
+      : 'https://valor-checkout.vercel.app';
+
+    var successUrl = baseUrl + '/success.html?session_id={CHECKOUT_SESSION_ID}';
+    if (ext) {
+      successUrl += '&ext=' + encodeURIComponent(ext);
+    }
+
+    var cancelUrl = baseUrl + '/cancel.html';
+    if (ext) {
+      cancelUrl += '?ext=' + encodeURIComponent(ext);
+    }
+
     var session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -26,12 +46,8 @@ module.exports = async function handler(req, res) {
         }
       ],
       mode: 'payment',
-      success_url: process.env.VERCEL_URL
-        ? 'https://' + process.env.VERCEL_URL + '/success.html?session_id={CHECKOUT_SESSION_ID}'
-        : 'https://valor-checkout.vercel.app/success.html?session_id={CHECKOUT_SESSION_ID}',
-      cancel_url: process.env.VERCEL_URL
-        ? 'https://' + process.env.VERCEL_URL + '/cancel.html'
-        : 'https://valor-checkout.vercel.app/cancel.html',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       metadata: {
         product: 'valor_action_pack',
         credits: '50'

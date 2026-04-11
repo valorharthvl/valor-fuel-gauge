@@ -1,30 +1,31 @@
 // checkout-listener.js — Content script injected on valor-checkout.vercel.app
-// Detects the Stripe success page, verifies payment server-side,
-// then sends ADD_CREDITS to the extension background to top up the balance.
-// Credits are NEVER awarded without server-side verification.
+// Backup credit path: verifies payment server-side, sends ADD_CREDITS via
+// internal content-script messaging. The success page also tries external
+// messaging as the primary path. Session ID dedup in background.js prevents
+// double-crediting.
 
 (function() {
-  // Only act on the success page with a session_id.
   if (window.location.pathname.indexOf('/success') === -1) {
     return;
   }
 
   var params = new URLSearchParams(window.location.search);
   var sessionId = params.get('session_id');
+  var extId = params.get('ext');
   if (!sessionId) {
     return;
   }
 
+  console.log('[Valor Checkout Listener] Success page detected. session_id:', sessionId, 'ext:', extId);
+
   var statusEl = document.getElementById('status');
   var spinnerEl = document.getElementById('spinner');
 
-  // Verify the payment server-side before awarding any credits.
   fetch('/api/verify-session?session_id=' + encodeURIComponent(sessionId))
     .then(function(res) { return res.json(); })
     .then(function(data) {
-      if (spinnerEl) spinnerEl.style.display = 'none';
-
       if (!data.ok) {
+        if (spinnerEl) spinnerEl.style.display = 'none';
         if (statusEl) {
           statusEl.textContent = 'Verification failed: ' + (data.error || 'Unknown error');
           statusEl.className = 'error-text';
@@ -32,30 +33,32 @@
         return;
       }
 
-      // Server confirmed payment. Send credits to the extension.
       var credits = data.credits || 50;
 
-      chrome.runtime.sendMessage({ type: 'ADD_CREDITS', credits: credits }, function(response) {
-        if (chrome.runtime.lastError) {
-          if (statusEl) {
-            statusEl.textContent = credits + ' credits verified! Reopen the extension popup to see your updated balance.';
-            statusEl.className = 'success-text';
-          }
-          return;
-        }
+      // Send via internal content-script messaging (backup path).
+      chrome.runtime.sendMessage(
+        { type: 'ADD_CREDITS', credits: credits, session_id: sessionId },
+        function(response) {
+          if (spinnerEl) spinnerEl.style.display = 'none';
 
-        if (response && response.ok) {
-          if (statusEl) {
-            statusEl.textContent = credits + ' credits added! New balance: ' + response.credits;
-            statusEl.className = 'success-text';
+          if (chrome.runtime.lastError) {
+            console.log('[Valor Checkout Listener] Internal message failed:', chrome.runtime.lastError.message);
+            if (statusEl) {
+              statusEl.textContent = credits + ' credits verified! Reopen the extension popup to see your balance.';
+              statusEl.className = 'success-text';
+            }
+            return;
           }
-        } else {
-          if (statusEl) {
-            statusEl.textContent = credits + ' credits verified! Reopen the extension popup to see your updated balance.';
-            statusEl.className = 'success-text';
+
+          if (response && response.ok) {
+            console.log('[Valor Checkout Listener] Credits added. Balance:', response.credits);
+            if (statusEl) {
+              statusEl.textContent = credits + ' credits added! New balance: ' + response.credits;
+              statusEl.className = 'success-text';
+            }
           }
         }
-      });
+      );
     })
     .catch(function(err) {
       if (spinnerEl) spinnerEl.style.display = 'none';
