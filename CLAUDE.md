@@ -35,15 +35,16 @@ All credentials are in ~/valor-fuel-gauge/.env
 - API keys cannot be retrieved from the Anthropic console after creation. Full key lives in .env file only.
 - Do not use the messages endpoint for usage checking. Track usage locally.
 - Correct Anthropic model string for validation calls is claude-haiku-4-5-20251001. Do not use claude-haiku-20240307 as it returns 404.
+- Anthropic API requires credits loaded in the account at console.anthropic.com Plans and Billing before any API calls succeed regardless of key validity.
 
 ## Completed Steps
 - Step 1: File structure and manifest complete and loading in Chrome
 - Step 2: Popup UI complete with circular gauge, color coding, action pack credits display
 - Step 3: Options page complete with AES-256 encrypted local storage for API key
-- Step 4: In progress - usage polling failing due to wrong endpoint and missing CORS header
+- Step 4: Claude usage polling complete, live data displaying in popup gauge
 
 ## Current Step
-Step 4 bug fix: Fix api.js to use local token tracking instead of Anthropic usage endpoint. Add anthropic-dangerous-direct-browser-access header to all API calls.
+Step 5: Action pack metering. 5 free actions on install tracked in Chrome storage. User sees credit balance in popup. Credits decrement when actions are used.
 
 ## Branch
 claude/valor-ai-fuel-gauge-R9Wwa
