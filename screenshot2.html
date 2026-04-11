@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Screenshot 2 — Summarize Feature</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 1280px; height: 800px; overflow: hidden; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: #060d1b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+body::before {
+  content: '';
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.browser-frame {
+  position: absolute;
+  top: 40px; left: 50%; transform: translateX(-50%);
+  width: 900px; height: 50px;
+  background: #131c31;
+  border-radius: 12px 12px 0 0;
+  display: flex; align-items: center; padding: 0 16px; gap: 8px;
+}
+.dot { width: 12px; height: 12px; border-radius: 50%; }
+.dot-r { background: #ef4444; }
+.dot-y { background: #facc15; }
+.dot-g { background: #4ade80; }
+.url-bar {
+  flex: 1; height: 28px; background: #0b1120; border-radius: 6px;
+  margin-left: 12px; display: flex; align-items: center; padding: 0 12px;
+  color: #475569; font-size: 12px;
+}
+.browser-body {
+  position: absolute;
+  top: 90px; left: 50%; transform: translateX(-50%);
+  width: 900px; height: 500px;
+  background: #0f172a;
+  border-radius: 0 0 12px 12px;
+  padding: 30px 50px;
+}
+/* Simulated article content with highlighted selection */
+.article-title {
+  font-size: 20px; font-weight: 700; color: #64748b;
+  margin-bottom: 16px; opacity: 0.3;
+}
+.article-line {
+  height: 10px; background: #334155; border-radius: 4px;
+  margin-bottom: 10px; opacity: 0.15;
+}
+.article-line.w90 { width: 90%; }
+.article-line.w80 { width: 80%; }
+.article-line.w70 { width: 70%; }
+.article-line.w60 { width: 60%; }
+/* Highlighted text block */
+.highlight-block {
+  background: rgba(59,130,246,0.12);
+  border-left: 3px solid #3b82f6;
+  padding: 10px 14px;
+  border-radius: 0 6px 6px 0;
+  margin: 12px 0;
+}
+.highlight-line {
+  height: 9px; background: #3b82f6; border-radius: 3px;
+  margin-bottom: 8px; opacity: 0.35;
+}
+.highlight-line.w95 { width: 95%; }
+.highlight-line.w85 { width: 85%; }
+.highlight-line.w75 { width: 75%; }
+.highlight-line.w50 { width: 50%; }
+
+.headline {
+  position: absolute;
+  top: 700px; left: 50%; transform: translateX(-50%);
+  text-align: center;
+  color: #f1f5f9; font-size: 22px; font-weight: 600;
+}
+.headline span { color: #8b5cf6; }
+
+/* Popup */
+.popup {
+  position: absolute;
+  top: 100px; right: 170px;
+  width: 380px;
+  background: #0b1120;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+  padding: 20px;
+  z-index: 10;
+}
+.p-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+.p-logo {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: linear-gradient(135deg, #d4a574, #c4956a);
+  color: #fff; font-size: 16px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.p-title { font-size: 15px; font-weight: 600; color: #f1f5f9; flex: 1; }
+.p-gear { color: #475569; }
+
+.p-gauge { display: flex; flex-direction: column; align-items: center; padding: 4px 0 16px; }
+.p-gauge-wrap { position: relative; width: 140px; height: 140px; }
+.p-gauge-label {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.p-pct { font-size: 36px; font-weight: 700; color: #4ade80; }
+.p-pct-sign { font-size: 16px; font-weight: 500; color: #64748b; margin-left: 1px; align-self: flex-start; margin-top: 8px; }
+.p-caption { font-size: 13px; color: #64748b; margin-top: 8px; }
+.p-reset { font-size: 12px; color: #475569; margin-top: 4px; }
+.p-reset span { color: #64748b; }
+
+.p-action { padding: 0 0 0; }
+.p-summarize {
+  width: 100%; padding: 10px 0;
+  background: #8b5cf6; color: #fff; border: none; border-radius: 8px;
+  font-size: 14px; font-weight: 600;
+}
+
+/* Result box */
+.p-result {
+  position: relative;
+  margin-top: 10px;
+  padding: 12px 32px 12px 14px;
+  background: #131c31;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+.p-result-text {
+  font-size: 13px; line-height: 1.6; color: #cbd5e1;
+}
+.p-result-dismiss {
+  position: absolute; top: 6px; right: 6px;
+  background: none; border: none; color: #475569;
+  font-size: 18px; line-height: 1; padding: 2px 6px;
+}
+
+.p-divider { height: 1px; background: #1e293b; margin: 0 0 16px; }
+
+.p-credits { display: flex; align-items: center; justify-content: space-between; }
+.p-cr-label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
+.p-cr-value { font-size: 22px; font-weight: 700; color: #f8fafc; margin-top: 2px; }
+.p-buy {
+  background: #3b82f6; color: #fff; border: none; border-radius: 8px;
+  padding: 10px 20px; font-size: 13px; font-weight: 600;
+}
+</style>
+</head>
+<body>
+
+<div class="browser-frame">
+  <div class="dot dot-r"></div>
+  <div class="dot dot-y"></div>
+  <div class="dot dot-g"></div>
+  <div class="url-bar">techcrunch.com/2026/04/10/ai-research-breakthrough</div>
+</div>
+<div class="browser-body">
+  <div class="article-title">AI Research Breakthrough: New Model Architecture</div>
+  <div class="article-line w90"></div>
+  <div class="article-line w80"></div>
+  <div class="article-line w70"></div>
+  <div class="highlight-block">
+    <div class="highlight-line w95"></div>
+    <div class="highlight-line w85"></div>
+    <div class="highlight-line w95"></div>
+    <div class="highlight-line w75"></div>
+    <div class="highlight-line w50"></div>
+  </div>
+  <div class="article-line w90"></div>
+  <div class="article-line w60"></div>
+  <div class="article-line w80"></div>
+  <div class="article-line w70"></div>
+  <div class="article-line w90"></div>
+</div>
+
+<div class="popup">
+  <div class="p-header">
+    <div class="p-logo">V</div>
+    <div class="p-title">Valor AI Fuel Gauge</div>
+    <svg class="p-gear" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+  </div>
+
+  <div class="p-gauge">
+    <div class="p-gauge-wrap">
+      <svg viewBox="0 0 160 160" width="140" height="140">
+        <circle cx="80" cy="80" r="68" fill="none" stroke="#1e293b" stroke-width="12"/>
+        <circle cx="80" cy="80" r="68" fill="none" stroke="#4ade80" stroke-width="12" stroke-linecap="round" transform="rotate(-90 80 80)" stroke-dasharray="427.26" stroke-dashoffset="0"/>
+      </svg>
+      <div class="p-gauge-label">
+        <span class="p-pct">100</span>
+        <span class="p-pct-sign">%</span>
+      </div>
+    </div>
+    <div class="p-caption">Claude usage remaining</div>
+    <div class="p-reset">Resets <span>May 1, 2026</span></div>
+  </div>
+
+  <div class="p-action">
+    <button class="p-summarize">Summarize</button>
+  </div>
+
+  <div class="p-result">
+    <button class="p-result-dismiss">&times;</button>
+    <div class="p-result-text">Researchers have unveiled a novel transformer architecture that reduces computational costs by 40% while maintaining accuracy on standard benchmarks. The approach uses a sparse attention mechanism that dynamically selects relevant tokens, enabling longer context windows without the typical memory overhead. Early tests suggest the method could make advanced AI models accessible on consumer hardware within the next year.</div>
+  </div>
+
+  <div class="p-divider"></div>
+
+  <div class="p-credits">
+    <div>
+      <div class="p-cr-label">Action Pack Credits</div>
+      <div class="p-cr-value">4</div>
+    </div>
+    <button class="p-buy">Buy More</button>
+  </div>
+</div>
+
+<div class="headline">Summarize any page <span>in one click</span></div>
+
+</body>
+</html>

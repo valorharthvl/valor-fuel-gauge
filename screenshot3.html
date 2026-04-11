@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Screenshot 3 — Settings Page</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 1280px; height: 800px; overflow: hidden; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: #060d1b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+body::before {
+  content: '';
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.headline {
+  position: absolute;
+  top: 700px; left: 50%; transform: translateX(-50%);
+  text-align: center;
+  color: #f1f5f9; font-size: 22px; font-weight: 600;
+}
+.headline span { color: #3b82f6; }
+
+/* Options page card */
+.options-card {
+  width: 520px;
+  background: #0b1120;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+  padding: 40px;
+}
+
+/* Header */
+.opt-header { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+.opt-logo {
+  width: 34px; height: 34px; border-radius: 8px;
+  background: linear-gradient(135deg, #d4a574, #c4956a);
+  color: #fff; font-size: 17px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.opt-title { font-size: 18px; font-weight: 600; color: #f1f5f9; }
+
+/* Card inner */
+.opt-inner {
+  background: #131c31;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 24px;
+}
+.opt-card-title { font-size: 14px; font-weight: 600; color: #f1f5f9; margin-bottom: 4px; }
+.opt-card-desc { font-size: 12px; color: #64748b; margin-bottom: 20px; line-height: 1.5; }
+
+/* Saved key display */
+.opt-saved {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: #0b1120;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+.opt-mask {
+  flex: 1;
+  font-size: 14px;
+  font-family: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.opt-badge {
+  font-size: 11px; font-weight: 600; color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+  padding: 3px 8px; border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* Buttons */
+.opt-btns { display: flex; gap: 10px; }
+.opt-btn {
+  padding: 10px 20px; font-size: 13px; font-weight: 600;
+  border: none; border-radius: 8px; cursor: pointer;
+}
+.opt-btn-primary { background: #3b82f6; color: #fff; }
+.opt-btn-danger { background: none; border: 1px solid #334155; color: #94a3b8; }
+
+/* Status */
+.opt-status {
+  font-size: 13px; color: #4ade80; margin-top: 14px; min-height: 20px;
+}
+
+/* Security note */
+.opt-security {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin-top: 24px; padding: 12px 14px;
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: 8px;
+}
+.opt-security p {
+  font-size: 12px; color: #64748b; line-height: 1.5;
+}
+</style>
+</head>
+<body>
+
+<div class="options-card">
+  <div class="opt-header">
+    <div class="opt-logo">V</div>
+    <div class="opt-title">Valor AI Fuel Gauge</div>
+  </div>
+
+  <div class="opt-inner">
+    <div class="opt-card-title">Anthropic API Key</div>
+    <div class="opt-card-desc">Your key is encrypted with AES-256 and stored locally. It never leaves your device.</div>
+
+    <div class="opt-saved">
+      <span class="opt-mask">sk-ant-a········HxqM</span>
+      <span class="opt-badge">Saved</span>
+    </div>
+
+    <div class="opt-btns">
+      <button class="opt-btn opt-btn-primary">Save</button>
+      <button class="opt-btn opt-btn-danger">Clear</button>
+    </div>
+
+    <div class="opt-status">API key encrypted and saved.</div>
+
+    <div class="opt-security">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+      </svg>
+      <p>Your API key is encrypted using AES-256-GCM via the Web Crypto API before being saved to Chrome local storage. It is never transmitted to any server.</p>
+    </div>
+  </div>
+</div>
+
+<div class="headline">Your API key stays on your device, <span>always encrypted</span></div>
+
+</body>
+</html>
