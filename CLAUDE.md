@@ -42,9 +42,10 @@ All credentials are in ~/valor-fuel-gauge/.env
 - Step 2: Popup UI complete with circular gauge, color coding, action pack credits display
 - Step 3: Options page complete with AES-256 encrypted local storage for API key
 - Step 4: Claude usage polling complete, live data displaying in popup gauge
+- Step 5: Action pack metering complete. 5 free credits on install, real balance displaying in popup, GET_CREDITS and DEDUCT_CREDIT message handlers working.
 
 ## Current Step
-Step 5: Action pack metering. 5 free actions on install tracked in Chrome storage. User sees credit balance in popup. Credits decrement when actions are used.
+Step 6: Quick summary action. User highlights text on any page, clicks extension popup button, gets a clean AI summary via Anthropic API, one credit is deducted per summary.
 
 ## Branch
 claude/valor-ai-fuel-gauge-R9Wwa
