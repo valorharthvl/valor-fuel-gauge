@@ -44,9 +44,14 @@ All credentials are in ~/valor-fuel-gauge/.env
 - Step 4: Claude usage polling complete, live data displaying in popup gauge
 - Step 5: Action pack metering complete. 5 free credits on install, real balance displaying in popup, GET_CREDITS and DEDUCT_CREDIT message handlers working.
 - Step 6: Quick summary action complete. Modular actions registry built. Selected text capture working. Anthropic API returning clean summaries. Credits decrementing correctly.
+- Step 7: Stripe checkout flow complete. Vercel backend live at valor-checkout.vercel.app. Server side payment verification working. 50 credits delivered to extension automatically after purchase. End to end tested and confirmed working.
 
 ## Current Step
-Step 7: Stripe checkout flow. Buy More button opens Stripe payment for $9.99 action pack of 50 credits. On successful payment credit balance updates automatically.
+Pre-Submission Checklist: Three items required before Chrome Web Store submission.
+
+1. Icons: Replace the C placeholder with proper Valor AI Fuel Gauge icons in all required sizes: 16x16, 32x32, 48x48, 128x128. Icons must be PNG format and match the dark navy brand.
+2. Privacy Policy: Create a privacy policy HTML page that can be hosted at valorhartllc.com/privacy. Must cover data collection, API key storage, payment processing, and no data selling.
+3. Branch merge: Merge claude/valor-ai-fuel-gauge-R9Wwa to main and do a final clean load test in Chrome.
 
 ## Branch
 claude/valor-ai-fuel-gauge-R9Wwa
