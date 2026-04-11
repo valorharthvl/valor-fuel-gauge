@@ -43,9 +43,10 @@ All credentials are in ~/valor-fuel-gauge/.env
 - Step 3: Options page complete with AES-256 encrypted local storage for API key
 - Step 4: Claude usage polling complete, live data displaying in popup gauge
 - Step 5: Action pack metering complete. 5 free credits on install, real balance displaying in popup, GET_CREDITS and DEDUCT_CREDIT message handlers working.
+- Step 6: Quick summary action complete. Modular actions registry built. Selected text capture working. Anthropic API returning clean summaries. Credits decrementing correctly.
 
 ## Current Step
-Step 6: Quick summary action. User highlights text on any page, clicks extension popup button, gets a clean AI summary via Anthropic API, one credit is deducted per summary.
+Step 7: Stripe checkout flow. Buy More button opens Stripe payment for $9.99 action pack of 50 credits. On successful payment credit balance updates automatically.
 
 ## Branch
 claude/valor-ai-fuel-gauge-R9Wwa
