@@ -26,7 +26,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 #header-logo {
@@ -67,31 +67,69 @@ body {
   color: #94a3b8;
 }
 
-/* ── Gauge ── */
+/* ── Gauge Cards ── */
 
-#gauge-section {
+.gauge-card {
+  background: #131c31;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+}
+
+.gauge-card-header {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  padding: 4px 0 16px;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
-#gauge-container {
+.platform-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.claude-dot {
+  background: #d4a574;
+}
+
+.chatgpt-dot {
+  background: #10a37f;
+}
+
+.platform-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.gauge-card-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.gauge-wrap {
   position: relative;
-  width: 160px;
-  height: 160px;
+  width: 100px;
+  height: 100px;
+  flex-shrink: 0;
 }
 
-#gauge-svg {
+.gauge-wrap svg {
   width: 100%;
   height: 100%;
 }
 
-#gauge-arc {
+.gauge-arc {
   transition: stroke-dashoffset 0.6s ease, stroke 0.4s ease;
 }
 
-#gauge-label {
+.gauge-label {
   position: absolute;
   inset: 0;
   display: flex;
@@ -100,42 +138,52 @@ body {
   pointer-events: none;
 }
 
-#gauge-percent {
-  font-size: 40px;
+.gauge-pct {
+  font-size: 26px;
   font-weight: 700;
   line-height: 1;
   color: #f8fafc;
 }
 
-#gauge-percent-sign {
-  font-size: 18px;
+.gauge-pct-sign {
+  font-size: 13px;
   font-weight: 500;
   color: #64748b;
   margin-left: 1px;
   align-self: flex-start;
-  margin-top: 10px;
+  margin-top: 6px;
 }
 
-#gauge-caption {
+.gauge-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.gauge-caption {
   font-size: 13px;
   color: #64748b;
-  margin-top: 10px;
 }
 
-#reset-date {
+.gauge-reset {
   font-size: 12px;
   color: #475569;
-  margin-top: 4px;
+  margin-top: 3px;
 }
 
-#reset-date-value {
+.gauge-reset span {
   color: #64748b;
+}
+
+.gauge-nokey {
+  font-size: 12px;
+  color: #475569;
+  padding: 8px 0;
 }
 
 /* ── Action section ── */
 
 #action-section {
-  padding: 0 0 16px;
+  padding: 4px 0 14px;
 }
 
 #summarize-btn {
@@ -221,7 +269,7 @@ body {
 #divider {
   height: 1px;
   background: #1e293b;
-  margin: 0 0 16px;
+  margin: 0 0 14px;
 }
 
 /* ── Credits ── */
@@ -274,8 +322,6 @@ body {
 #buy-btn:active {
   background: #1d4ed8;
 }
-
-/* ── Buy More pulse when credits are 0 ── */
 
 @keyframes pulse-buy {
   0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }

@@ -1,19 +1,13 @@
 // popup.js — Valor AI Fuel Gauge popup logic.
-// Reads local token tracking data and action pack credits from the background service worker.
-// Handles the Summarize action button and displays results.
-// Buy More opens Vercel-hosted Stripe checkout in a new tab with extension ID.
+// Displays dual gauges for Claude and ChatGPT usage.
 
 document.addEventListener('DOMContentLoaded', function() {
 
   var CHECKOUT_URL = 'https://valor-checkout.vercel.app/checkout.html';
+  var RADIUS = 50;
+  var CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
   // ── DOM references ──
-  var gaugeArc = document.getElementById('gauge-arc');
-  var gaugePercent = document.getElementById('gauge-percent');
-  var gaugePercentSign = document.getElementById('gauge-percent-sign');
-  var gaugeCaption = document.getElementById('gauge-caption');
-  var resetDateEl = document.getElementById('reset-date');
-  var resetDateValue = document.getElementById('reset-date-value');
   var creditsValue = document.getElementById('credits-value');
   var buyBtn = document.getElementById('buy-btn');
   var settingsBtn = document.getElementById('settings-btn');
@@ -25,9 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   var currentCredits = 0;
 
-  // ── Gauge constants ──
-  var RADIUS = 68;
-  var CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+  // ── Gauge helpers ──
 
   function gaugeColor(pct) {
     if (pct > 50) return '#4ade80';
@@ -35,41 +27,56 @@ document.addEventListener('DOMContentLoaded', function() {
     return '#ef4444';
   }
 
-  function renderGauge(pct) {
-    var clamped = Math.max(0, Math.min(100, pct));
+  function renderPlatformGauge(arcId, pctId, signId, captionId, resetId, resetValId, data) {
+    var arc = document.getElementById(arcId);
+    var pctEl = document.getElementById(pctId);
+    var signEl = document.getElementById(signId);
+    var captionEl = document.getElementById(captionId);
+    var resetEl = document.getElementById(resetId);
+    var resetValEl = document.getElementById(resetValId);
+
+    if (!data || data.error === 'no_key') {
+      arc.style.strokeDasharray = CIRCUMFERENCE;
+      arc.style.strokeDashoffset = CIRCUMFERENCE;
+      arc.setAttribute('stroke', '#1e293b');
+      pctEl.textContent = '--';
+      pctEl.style.color = '#475569';
+      signEl.style.display = 'none';
+      captionEl.textContent = 'Add API key in settings';
+      captionEl.style.color = '#475569';
+      resetEl.style.display = 'none';
+      return;
+    }
+
+    if (!data.ok) {
+      arc.style.strokeDasharray = CIRCUMFERENCE;
+      arc.style.strokeDashoffset = CIRCUMFERENCE;
+      arc.setAttribute('stroke', '#1e293b');
+      pctEl.textContent = '--';
+      pctEl.style.color = '#475569';
+      signEl.style.display = 'none';
+      captionEl.textContent = 'Check your API key';
+      captionEl.style.color = '#ef4444';
+      resetEl.style.display = 'none';
+      return;
+    }
+
+    var clamped = Math.max(0, Math.min(100, data.percentRemaining));
     var offset = CIRCUMFERENCE - (clamped / 100) * CIRCUMFERENCE;
     var color = gaugeColor(clamped);
 
-    gaugeArc.style.strokeDasharray = CIRCUMFERENCE;
-    gaugeArc.style.strokeDashoffset = offset;
-    gaugeArc.setAttribute('stroke', color);
+    arc.style.strokeDasharray = CIRCUMFERENCE;
+    arc.style.strokeDashoffset = offset;
+    arc.setAttribute('stroke', color);
 
-    gaugePercent.textContent = Math.round(clamped);
-    gaugePercent.style.color = color;
-    gaugePercentSign.style.display = '';
-  }
+    pctEl.textContent = Math.round(clamped);
+    pctEl.style.color = color;
+    signEl.style.display = '';
 
-  function renderEmpty() {
-    gaugeArc.style.strokeDasharray = CIRCUMFERENCE;
-    gaugeArc.style.strokeDashoffset = CIRCUMFERENCE;
-    gaugeArc.setAttribute('stroke', '#1e293b');
-    gaugePercent.textContent = '--';
-    gaugePercent.style.color = '#475569';
-    gaugePercentSign.style.display = 'none';
-  }
-
-  function showMessage(text) {
-    renderEmpty();
-    gaugeCaption.textContent = text;
-    gaugeCaption.style.color = '';
-    resetDateEl.style.display = 'none';
-  }
-
-  function showError(text) {
-    renderEmpty();
-    gaugeCaption.textContent = text;
-    gaugeCaption.style.color = '#ef4444';
-    resetDateEl.style.display = 'none';
+    captionEl.textContent = 'Usage remaining';
+    captionEl.style.color = '';
+    resetEl.style.display = '';
+    resetValEl.textContent = formatResetDate(data.resetDate);
   }
 
   function formatResetDate(iso) {
@@ -96,54 +103,46 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // ── Wake the service worker with a PING, then request data ──
+  // ── Wake service worker, then request all data ──
 
   chrome.runtime.sendMessage({ type: 'PING' }, function() {
-    if (chrome.runtime.lastError) {
-      // Ignore — PING just wakes the worker.
-    }
-    requestUsage();
+    if (chrome.runtime.lastError) {}
+    requestClaudeUsage();
+    requestOpenAIUsage();
     requestCredits();
   });
 
-  // ── Usage data ──
+  // ── Claude usage ──
 
-  function requestUsage() {
+  function requestClaudeUsage() {
     chrome.runtime.sendMessage({ type: 'GET_USAGE' }, function(response) {
-      if (chrome.runtime.lastError || !response) {
-        showError('Unable to reach background service.');
-        return;
+      if (chrome.runtime.lastError) {
+        response = { ok: false, error: 'no_data' };
       }
-
-      if (response.error === 'no_key') {
-        showMessage('Add your API key in settings to get started');
-        return;
-      }
-
-      if (response.error === 'invalid_key') {
-        showError('Unable to fetch usage. Check your API key.');
-        return;
-      }
-
-      if (response.error === 'network_error') {
-        showError('Network error. Check your connection.');
-        return;
-      }
-
-      if (!response.ok) {
-        showError('Unable to fetch usage. Check your API key.');
-        return;
-      }
-
-      renderGauge(response.percentRemaining);
-      gaugeCaption.textContent = 'Claude usage remaining';
-      gaugeCaption.style.color = '';
-      resetDateEl.style.display = '';
-      resetDateValue.textContent = formatResetDate(response.resetDate);
+      renderPlatformGauge(
+        'claude-arc', 'claude-pct', 'claude-pct-sign',
+        'claude-caption', 'claude-reset', 'claude-reset-val',
+        response
+      );
     });
   }
 
-  // ── Credit balance ──
+  // ── OpenAI usage ──
+
+  function requestOpenAIUsage() {
+    chrome.runtime.sendMessage({ type: 'GET_OPENAI_USAGE' }, function(response) {
+      if (chrome.runtime.lastError) {
+        response = { ok: false, error: 'no_data' };
+      }
+      renderPlatformGauge(
+        'chatgpt-arc', 'chatgpt-pct', 'chatgpt-pct-sign',
+        'chatgpt-caption', 'chatgpt-reset', 'chatgpt-reset-val',
+        response
+      );
+    });
+  }
+
+  // ── Credits ──
 
   function requestCredits() {
     chrome.runtime.sendMessage({ type: 'GET_CREDITS' }, function(response) {
@@ -155,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // ── Summarize action ──
+  // ── Summarize ──
 
   summarizeBtn.addEventListener('click', function() {
     actionError.textContent = '';
@@ -185,7 +184,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       if (response.error === 'no_key') {
-        actionError.textContent = 'Add your API key in settings first.';
+        actionError.textContent = 'Add your Claude API key in settings first.';
         return;
       }
 
@@ -212,7 +211,7 @@ document.addEventListener('DOMContentLoaded', function() {
     resultText.textContent = '';
   });
 
-  // ── Buy More — opens Stripe checkout with extension ID in URL ──
+  // ── Buy More ──
 
   buyBtn.addEventListener('click', function() {
     var extId = chrome.runtime.id;

@@ -1,6 +1,6 @@
 // storage.js — Valor AI Fuel Gauge storage + AES-256-GCM encryption layer.
 // Uses Web Crypto API for all encryption. No external libraries.
-// The API key never leaves the device.
+// Supports both Anthropic and OpenAI API keys independently.
 
 const ValorStorage = {
 
@@ -46,12 +46,8 @@ const ValorStorage = {
 
   _STORAGE_KEY_EK: '_valor_ek',
   _STORAGE_KEY_API: '_valor_api_enc',
+  _STORAGE_KEY_OPENAI: '_valor_openai_api_enc',
 
-  /**
-   * Get or create the AES-256-GCM encryption key.
-   * The key is generated once and persisted as an exported JWK in local storage.
-   * @returns {Promise<CryptoKey>}
-   */
   async _getEncryptionKey() {
     const stored = await this.get([this._STORAGE_KEY_EK]);
     if (stored[this._STORAGE_KEY_EK]) {
@@ -79,10 +75,6 @@ const ValorStorage = {
     );
   },
 
-  /**
-   * Encrypt a plaintext string with AES-256-GCM.
-   * Returns an object { iv, ciphertext } with Base64-encoded values.
-   */
   async _encrypt(plaintext) {
     const key = await this._getEncryptionKey();
     const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -98,9 +90,6 @@ const ValorStorage = {
     };
   },
 
-  /**
-   * Decrypt a { iv, ciphertext } object back to a plaintext string.
-   */
   async _decrypt(envelope) {
     const key = await this._getEncryptionKey();
     const iv = this._base64ToBuf(envelope.iv);
@@ -130,22 +119,13 @@ const ValorStorage = {
     return buf;
   },
 
-  // ── Public API key methods ──
+  // ── Anthropic API key ──
 
-  /**
-   * Encrypt and save the Anthropic API key to local storage.
-   * @param {string} apiKey
-   */
   async saveApiKey(apiKey) {
     const envelope = await this._encrypt(apiKey);
     await this.set({ [this._STORAGE_KEY_API]: envelope });
   },
 
-  /**
-   * Load and decrypt the Anthropic API key from local storage.
-   * Returns the plaintext key, or null if none is stored.
-   * @returns {Promise<string|null>}
-   */
   async loadApiKey() {
     const stored = await this.get([this._STORAGE_KEY_API]);
     const envelope = stored[this._STORAGE_KEY_API];
@@ -153,28 +133,40 @@ const ValorStorage = {
     return this._decrypt(envelope);
   },
 
-  /**
-   * Check whether an encrypted API key exists in storage without decrypting it.
-   * @returns {Promise<boolean>}
-   */
   async hasApiKey() {
     const stored = await this.get([this._STORAGE_KEY_API]);
     return !!stored[this._STORAGE_KEY_API];
   },
 
-  /**
-   * Remove the encrypted API key from local storage.
-   */
   async clearApiKey() {
     await this.remove([this._STORAGE_KEY_API]);
   },
 
-  /**
-   * Return a masked version of the API key for display.
-   * Shows the first 7 characters and the last 4, with dots in between.
-   * @param {string} apiKey - The plaintext key.
-   * @returns {string}
-   */
+  // ── OpenAI API key ──
+
+  async saveOpenAIKey(apiKey) {
+    const envelope = await this._encrypt(apiKey);
+    await this.set({ [this._STORAGE_KEY_OPENAI]: envelope });
+  },
+
+  async loadOpenAIKey() {
+    const stored = await this.get([this._STORAGE_KEY_OPENAI]);
+    const envelope = stored[this._STORAGE_KEY_OPENAI];
+    if (!envelope) return null;
+    return this._decrypt(envelope);
+  },
+
+  async hasOpenAIKey() {
+    const stored = await this.get([this._STORAGE_KEY_OPENAI]);
+    return !!stored[this._STORAGE_KEY_OPENAI];
+  },
+
+  async clearOpenAIKey() {
+    await this.remove([this._STORAGE_KEY_OPENAI]);
+  },
+
+  // ── Shared ──
+
   maskApiKey(apiKey) {
     if (!apiKey || apiKey.length < 16) return '••••••••••••';
     return apiKey.substring(0, 7) + '••••••••' + apiKey.slice(-4);

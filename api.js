@@ -1,15 +1,11 @@
 // api.js — Valor AI Fuel Gauge API helper.
 // All external calls are routed through here. No DOM scraping.
-// REQUIRED: Every Anthropic fetch includes anthropic-dangerous-direct-browser-access header.
-// RULE: Never use the messages endpoint for usage checking. Track usage locally.
-// The messages endpoint is used ONLY for one-time key validation on first load.
+// Supports both Anthropic (Claude) and OpenAI (ChatGPT) APIs.
 
 var ValorAPI = {
 
-  /**
-   * Standard headers for every Anthropic API call.
-   * Always includes anthropic-dangerous-direct-browser-access or calls return 401.
-   */
+  // ── Anthropic headers ──
+
   _headers: function(apiKey) {
     return {
       'Content-Type': 'application/json',
@@ -19,11 +15,17 @@ var ValorAPI = {
     };
   },
 
-  /**
-   * One-time key validation. Sends a minimal 1-token test message.
-   * Called on first load only, never for usage polling.
-   * Returns the token count so the local tracker can record it.
-   */
+  // ── OpenAI headers ──
+
+  _openaiHeaders: function(apiKey) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey
+    };
+  },
+
+  // ── Anthropic key validation ──
+
   validateKey: async function(apiKey) {
     var response;
     try {
@@ -40,7 +42,7 @@ var ValorAPI = {
       return { ok: false, error: 'network_error' };
     }
 
-    console.log('[ValorAPI] validateKey HTTP status:', response.status);
+    console.log('[ValorAPI] validateKey (Anthropic) HTTP status:', response.status);
 
     if (response.status === 401) {
       return { ok: false, error: 'invalid_key' };
@@ -67,26 +69,61 @@ var ValorAPI = {
     return { ok: true, tokensUsed: used };
   },
 
-  /**
-   * Purchase an action pack via Stripe checkout.
-   * Placeholder: not yet implemented.
-   */
+  // ── OpenAI key validation ──
+
+  validateOpenAIKey: async function(apiKey) {
+    var response;
+    try {
+      response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: this._openaiHeaders(apiKey),
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          max_tokens: 1,
+          messages: [{ role: 'user', content: '.' }]
+        })
+      });
+    } catch (err) {
+      return { ok: false, error: 'network_error' };
+    }
+
+    console.log('[ValorAPI] validateKey (OpenAI) HTTP status:', response.status);
+
+    if (response.status === 401) {
+      return { ok: false, error: 'invalid_key' };
+    }
+
+    if (!response.ok) {
+      var errorBody = await response.text();
+      console.log('[ValorAPI] validateOpenAIKey error body:', errorBody);
+      return { ok: false, error: 'api_error' };
+    }
+
+    var body;
+    try {
+      body = await response.json();
+    } catch (e) {
+      return { ok: true, tokensUsed: 0 };
+    }
+
+    var used = 0;
+    if (body && body.usage) {
+      used = (body.usage.prompt_tokens || 0) + (body.usage.completion_tokens || 0);
+    }
+
+    return { ok: true, tokensUsed: used };
+  },
+
+  // ── Placeholders ──
+
   purchaseActionPack: async function() {
     return { ok: false, message: 'Stripe integration pending.' };
   },
 
-  /**
-   * Run a quick summary action via the Anthropic API.
-   * Placeholder: not yet implemented. Will use _headers() and record tokens.
-   */
   runSummaryAction: async function(apiKey, text) {
     return { ok: false, message: 'Anthropic integration pending.' };
   },
 
-  /**
-   * Send an onboarding email via Resend.
-   * Placeholder: not yet implemented.
-   */
   sendOnboardingEmail: async function(email) {
     return { ok: false, message: 'Resend integration pending.' };
   }

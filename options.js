@@ -1,83 +1,101 @@
 // options.js — Valor AI Fuel Gauge settings page (UI only).
-// All encryption and storage logic lives in storage.js.
+// Handles both Anthropic and OpenAI API key sections.
 
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', async function() {
 
-  // ── DOM references ──
-  const apiKeyInput = document.getElementById('api-key-input');
-  const inputGroup = document.getElementById('input-group');
-  const savedKeyDisplay = document.getElementById('saved-key-display');
-  const savedKeyMask = document.getElementById('saved-key-mask');
-  const saveBtn = document.getElementById('save-btn');
-  const clearBtn = document.getElementById('clear-btn');
-  const statusMsg = document.getElementById('status-msg');
+  // ── Wire up a key section ──
 
-  let statusTimer = null;
+  function wireKeySection(opts) {
+    var inputGroup = document.getElementById(opts.inputGroupId);
+    var keyInput = document.getElementById(opts.inputId);
+    var savedDisplay = document.getElementById(opts.savedDisplayId);
+    var savedMask = document.getElementById(opts.savedMaskId);
+    var saveBtn = document.getElementById(opts.saveBtnId);
+    var clearBtn = document.getElementById(opts.clearBtnId);
+    var statusEl = document.getElementById(opts.statusId);
+    var statusTimer = null;
 
-  // ── Helpers ──
-
-  function showStatus(text, type) {
-    if (statusTimer) clearTimeout(statusTimer);
-    statusMsg.textContent = text;
-    statusMsg.className = 'status-msg ' + type;
-    statusTimer = setTimeout(() => { statusMsg.textContent = ''; }, 3000);
-  }
-
-  function showSavedState(maskedKey) {
-    savedKeyMask.textContent = maskedKey;
-    savedKeyDisplay.classList.add('visible');
-    inputGroup.style.display = 'none';
-  }
-
-  function showInputState() {
-    savedKeyDisplay.classList.remove('visible');
-    inputGroup.style.display = 'block';
-    apiKeyInput.value = '';
-    apiKeyInput.focus();
-  }
-
-  // ── Load existing key on page open ──
-
-  try {
-    const existing = await ValorStorage.loadApiKey();
-    if (existing) {
-      showSavedState(ValorStorage.maskApiKey(existing));
-    }
-  } catch (err) {
-    console.error('[Valor Options] Failed to load API key:', err);
-  }
-
-  // ── Save button ──
-
-  saveBtn.addEventListener('click', async () => {
-    const raw = apiKeyInput.value.trim();
-
-    if (!raw) {
-      showStatus('Please enter your API key.', 'error');
-      apiKeyInput.focus();
-      return;
+    function showStatus(text, type) {
+      if (statusTimer) clearTimeout(statusTimer);
+      statusEl.textContent = text;
+      statusEl.className = 'status-msg ' + type;
+      statusTimer = setTimeout(function() { statusEl.textContent = ''; }, 3000);
     }
 
-    try {
-      await ValorStorage.saveApiKey(raw);
-      showSavedState(ValorStorage.maskApiKey(raw));
-      showStatus('API key encrypted and saved.', 'success');
-    } catch (err) {
-      console.error('[Valor Options] Save failed:', err);
-      showStatus('Failed to save. Please try again.', 'error');
+    function showSavedState(maskedKey) {
+      savedMask.textContent = maskedKey;
+      savedDisplay.classList.add('visible');
+      inputGroup.style.display = 'none';
     }
+
+    function showInputState() {
+      savedDisplay.classList.remove('visible');
+      inputGroup.style.display = 'block';
+      keyInput.value = '';
+      keyInput.focus();
+    }
+
+    // Load existing
+    opts.loadFn().then(function(existing) {
+      if (existing) {
+        showSavedState(ValorStorage.maskApiKey(existing));
+      }
+    }).catch(function() {});
+
+    saveBtn.addEventListener('click', async function() {
+      var raw = keyInput.value.trim();
+      if (!raw) {
+        showStatus('Please enter your API key.', 'error');
+        keyInput.focus();
+        return;
+      }
+      try {
+        await opts.saveFn(raw);
+        showSavedState(ValorStorage.maskApiKey(raw));
+        showStatus('API key encrypted and saved.', 'success');
+      } catch (err) {
+        showStatus('Failed to save. Please try again.', 'error');
+      }
+    });
+
+    clearBtn.addEventListener('click', async function() {
+      try {
+        await opts.clearFn();
+        showInputState();
+        showStatus('API key removed.', 'success');
+      } catch (err) {
+        showStatus('Failed to clear. Please try again.', 'error');
+      }
+    });
+  }
+
+  // ── Anthropic section ──
+
+  wireKeySection({
+    inputGroupId: 'anthropic-input-group',
+    inputId: 'anthropic-key-input',
+    savedDisplayId: 'anthropic-saved-display',
+    savedMaskId: 'anthropic-saved-mask',
+    saveBtnId: 'anthropic-save-btn',
+    clearBtnId: 'anthropic-clear-btn',
+    statusId: 'anthropic-status',
+    loadFn: function() { return ValorStorage.loadApiKey(); },
+    saveFn: function(key) { return ValorStorage.saveApiKey(key); },
+    clearFn: function() { return ValorStorage.clearApiKey(); }
   });
 
-  // ── Clear button ──
+  // ── OpenAI section ──
 
-  clearBtn.addEventListener('click', async () => {
-    try {
-      await ValorStorage.clearApiKey();
-      showInputState();
-      showStatus('API key removed.', 'success');
-    } catch (err) {
-      console.error('[Valor Options] Clear failed:', err);
-      showStatus('Failed to clear. Please try again.', 'error');
-    }
+  wireKeySection({
+    inputGroupId: 'openai-input-group',
+    inputId: 'openai-key-input',
+    savedDisplayId: 'openai-saved-display',
+    savedMaskId: 'openai-saved-mask',
+    saveBtnId: 'openai-save-btn',
+    clearBtnId: 'openai-clear-btn',
+    statusId: 'openai-status',
+    loadFn: function() { return ValorStorage.loadOpenAIKey(); },
+    saveFn: function(key) { return ValorStorage.saveOpenAIKey(key); },
+    clearFn: function() { return ValorStorage.clearOpenAIKey(); }
   });
 });

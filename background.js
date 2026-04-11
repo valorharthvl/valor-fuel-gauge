@@ -1,12 +1,13 @@
 // background.js — Valor AI Fuel Gauge service worker.
-// All usage tracking is LOCAL in Chrome storage. No Anthropic usage endpoint exists.
-// Actions are dispatched through the actionsRegistry for extensibility.
+// Tracks usage for both Claude (Anthropic) and ChatGPT (OpenAI) locally.
+// Actions dispatched through actionsRegistry.
 
 console.log('[Valor] Service worker loaded.');
 
 importScripts('storage.js', 'api.js');
 
-var TRACKER_KEY = '_valor_token_tracker';
+var CLAUDE_TRACKER_KEY = '_valor_token_tracker';
+var OPENAI_TRACKER_KEY = '_valor_openai_tracker';
 var CREDITS_KEY = 'valor_action_credits';
 var CREDITED_SESSIONS_KEY = '_valor_credited_sessions';
 var DEFAULT_BUDGET = 100000;
@@ -35,34 +36,24 @@ var actionsRegistry = {
       return { ok: false, error: 'network_error' };
     }
 
-    console.log('[Valor] SUMMARIZE HTTP status:', response.status);
-
-    if (response.status === 401) {
-      return { ok: false, error: 'invalid_key' };
-    }
-
+    if (response.status === 401) return { ok: false, error: 'invalid_key' };
     if (!response.ok) {
       var errorBody = await response.text();
-      console.log('[Valor] SUMMARIZE error body:', errorBody);
+      console.log('[Valor] SUMMARIZE error:', errorBody);
       return { ok: false, error: 'api_error' };
     }
 
     var body = await response.json();
-
     var text = '';
     if (body.content && body.content[0] && body.content[0].text) {
       text = body.content[0].text;
     }
-
     var tokensUsed = 0;
     if (body.usage) {
       tokensUsed = (body.usage.input_tokens || 0) + (body.usage.output_tokens || 0);
     }
-
     return { ok: true, result: text, tokensUsed: tokensUsed };
   }
-
-  // Future actions: REWRITE_TONE, DRAFT_EMAIL, EXPLAIN_CODE
 };
 
 // ══════════════════════════════════════════
@@ -71,9 +62,147 @@ var actionsRegistry = {
 
 chrome.runtime.onInstalled.addListener(function() {
   console.log('[Valor] onInstalled fired.');
-  initTracker();
+  initTracker(CLAUDE_TRACKER_KEY);
+  initTracker(OPENAI_TRACKER_KEY);
   initCredits();
 });
+
+// ══════════════════════════════════════════
+// Generic tracker (works for both platforms)
+// ══════════════════════════════════════════
+
+async function initTracker(key) {
+  var stored = await ValorStorage.get([key]);
+  if (!stored[key]) {
+    var now = new Date();
+    var resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    var obj = {};
+    obj[key] = {
+      tokensUsed: 0,
+      tokenBudget: DEFAULT_BUDGET,
+      periodStart: now.toISOString(),
+      resetDate: resetDate.toISOString(),
+      keyValid: false
+    };
+    await ValorStorage.set(obj);
+  }
+}
+
+async function getTracker(key) {
+  await initTracker(key);
+  var stored = await ValorStorage.get([key]);
+  var tracker = stored[key];
+
+  if (new Date() >= new Date(tracker.resetDate)) {
+    var now = new Date();
+    var nextReset = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    tracker.tokensUsed = 0;
+    tracker.periodStart = now.toISOString();
+    tracker.resetDate = nextReset.toISOString();
+    var obj = {};
+    obj[key] = tracker;
+    await ValorStorage.set(obj);
+  }
+
+  return tracker;
+}
+
+async function addTokensToTracker(key, count) {
+  var tracker = await getTracker(key);
+  tracker.tokensUsed += count;
+  var obj = {};
+  obj[key] = tracker;
+  await ValorStorage.set(obj);
+  return tracker;
+}
+
+function buildUsageResponse(tracker) {
+  var remaining = tracker.tokenBudget - tracker.tokensUsed;
+  if (remaining < 0) remaining = 0;
+  var pct = Math.round((remaining / tracker.tokenBudget) * 100);
+  return {
+    ok: true,
+    percentRemaining: pct,
+    tokensUsed: tracker.tokensUsed,
+    tokenBudget: tracker.tokenBudget,
+    resetDate: tracker.resetDate,
+    fetchedAt: Date.now()
+  };
+}
+
+// ══════════════════════════════════════════
+// Claude key validation
+// ══════════════════════════════════════════
+
+async function validateClaude() {
+  var apiKey = await ValorStorage.loadApiKey();
+  if (!apiKey) return { ok: false, error: 'no_key' };
+
+  var result = await ValorAPI.validateKey(apiKey);
+  var tracker = await getTracker(CLAUDE_TRACKER_KEY);
+
+  if (!result.ok) {
+    tracker.keyValid = false;
+    var obj = {};
+    obj[CLAUDE_TRACKER_KEY] = tracker;
+    await ValorStorage.set(obj);
+    return { ok: false, error: result.error };
+  }
+
+  tracker.keyValid = true;
+  tracker.tokensUsed += result.tokensUsed;
+  var obj = {};
+  obj[CLAUDE_TRACKER_KEY] = tracker;
+  await ValorStorage.set(obj);
+  return buildUsageResponse(tracker);
+}
+
+// ══════════════════════════════════════════
+// OpenAI key validation
+// ══════════════════════════════════════════
+
+async function validateOpenAI() {
+  var apiKey = await ValorStorage.loadOpenAIKey();
+  if (!apiKey) return { ok: false, error: 'no_key' };
+
+  var result = await ValorAPI.validateOpenAIKey(apiKey);
+  var tracker = await getTracker(OPENAI_TRACKER_KEY);
+
+  if (!result.ok) {
+    tracker.keyValid = false;
+    var obj = {};
+    obj[OPENAI_TRACKER_KEY] = tracker;
+    await ValorStorage.set(obj);
+    return { ok: false, error: result.error };
+  }
+
+  tracker.keyValid = true;
+  tracker.tokensUsed += result.tokensUsed;
+  var obj = {};
+  obj[OPENAI_TRACKER_KEY] = tracker;
+  await ValorStorage.set(obj);
+  return buildUsageResponse(tracker);
+}
+
+// ══════════════════════════════════════════
+// Usage handlers
+// ══════════════════════════════════════════
+
+async function handleGetClaudeUsage() {
+  var apiKey = await ValorStorage.loadApiKey();
+  if (!apiKey) return { ok: false, error: 'no_key' };
+  var tracker = await getTracker(CLAUDE_TRACKER_KEY);
+  if (!tracker.keyValid) return validateClaude();
+  return buildUsageResponse(tracker);
+}
+
+async function handleGetOpenAIUsage() {
+  var apiKey = await ValorStorage.loadOpenAIKey();
+  if (!apiKey) return { ok: false, error: 'no_key' };
+  var tracker = await getTracker(OPENAI_TRACKER_KEY);
+  if (!tracker.keyValid) return validateOpenAI();
+  return buildUsageResponse(tracker);
+}
 
 // ══════════════════════════════════════════
 // Action pack credits
@@ -83,7 +212,6 @@ async function initCredits() {
   var stored = await ValorStorage.get([CREDITS_KEY]);
   if (typeof stored[CREDITS_KEY] !== 'number') {
     await ValorStorage.set({ [CREDITS_KEY]: FREE_CREDITS });
-    console.log('[Valor] Credits initialized:', FREE_CREDITS);
   }
 }
 
@@ -101,134 +229,32 @@ async function addCredits(amount) {
   var balance = await getCredits();
   var newBalance = balance + amount;
   await ValorStorage.set({ [CREDITS_KEY]: newBalance });
-  console.log('[Valor] Credits added:', amount, 'New balance:', newBalance);
   return { ok: true, credits: newBalance };
 }
 
 async function deductCredit() {
   var balance = await getCredits();
-  if (balance <= 0) {
-    return { ok: false, error: 'no_credits', credits: 0 };
-  }
+  if (balance <= 0) return { ok: false, error: 'no_credits', credits: 0 };
   var newBalance = balance - 1;
   await ValorStorage.set({ [CREDITS_KEY]: newBalance });
   return { ok: true, credits: newBalance };
 }
 
-// Session dedup: prevents double-crediting when both the success page
-// (external messaging) and checkout-listener.js (internal messaging) fire.
 async function handleAddCredits(message) {
   var amount = message.credits || 0;
   var sessionId = message.session_id || '';
-
-  if (amount <= 0) {
-    return { ok: false, error: 'invalid_amount' };
-  }
-
+  if (amount <= 0) return { ok: false, error: 'invalid_amount' };
   if (sessionId) {
     var stored = await ValorStorage.get([CREDITED_SESSIONS_KEY]);
     var credited = stored[CREDITED_SESSIONS_KEY] || [];
     if (credited.indexOf(sessionId) !== -1) {
-      console.log('[Valor] Session already credited:', sessionId);
       var balance = await getCredits();
       return { ok: true, credits: balance, already_credited: true };
     }
     credited.push(sessionId);
     await ValorStorage.set({ [CREDITED_SESSIONS_KEY]: credited });
   }
-
   return addCredits(amount);
-}
-
-// ══════════════════════════════════════════
-// Local token tracker
-// ══════════════════════════════════════════
-
-async function initTracker() {
-  var stored = await ValorStorage.get([TRACKER_KEY]);
-  if (!stored[TRACKER_KEY]) {
-    var now = new Date();
-    var resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    await ValorStorage.set({
-      [TRACKER_KEY]: {
-        tokensUsed: 0,
-        tokenBudget: DEFAULT_BUDGET,
-        periodStart: now.toISOString(),
-        resetDate: resetDate.toISOString(),
-        keyValid: false
-      }
-    });
-    console.log('[Valor] Tracker initialized.');
-  }
-}
-
-async function getTracker() {
-  await initTracker();
-  var stored = await ValorStorage.get([TRACKER_KEY]);
-  var tracker = stored[TRACKER_KEY];
-
-  if (new Date() >= new Date(tracker.resetDate)) {
-    var now = new Date();
-    var nextReset = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    tracker.tokensUsed = 0;
-    tracker.periodStart = now.toISOString();
-    tracker.resetDate = nextReset.toISOString();
-    await ValorStorage.set({ [TRACKER_KEY]: tracker });
-    console.log('[Valor] Monthly period reset.');
-  }
-
-  return tracker;
-}
-
-async function addTokens(count) {
-  var tracker = await getTracker();
-  tracker.tokensUsed += count;
-  await ValorStorage.set({ [TRACKER_KEY]: tracker });
-  return tracker;
-}
-
-function buildUsageResponse(tracker) {
-  var remaining = tracker.tokenBudget - tracker.tokensUsed;
-  if (remaining < 0) remaining = 0;
-  var pct = Math.round((remaining / tracker.tokenBudget) * 100);
-
-  return {
-    ok: true,
-    percentRemaining: pct,
-    tokensUsed: tracker.tokensUsed,
-    tokenBudget: tracker.tokenBudget,
-    resetDate: tracker.resetDate,
-    fetchedAt: Date.now()
-  };
-}
-
-// ══════════════════════════════════════════
-// One-time key validation
-// ══════════════════════════════════════════
-
-async function validateOnce() {
-  var apiKey = await ValorStorage.loadApiKey();
-  if (!apiKey) {
-    return { ok: false, error: 'no_key' };
-  }
-
-  console.log('[Valor] Validating API key...');
-  var result = await ValorAPI.validateKey(apiKey);
-  var tracker = await getTracker();
-
-  if (!result.ok) {
-    console.log('[Valor] Key validation failed:', result.error);
-    tracker.keyValid = false;
-    await ValorStorage.set({ [TRACKER_KEY]: tracker });
-    return { ok: false, error: result.error };
-  }
-
-  console.log('[Valor] Key valid. Probe used', result.tokensUsed, 'tokens.');
-  tracker.keyValid = true;
-  tracker.tokensUsed += result.tokensUsed;
-  await ValorStorage.set({ [TRACKER_KEY]: tracker });
-
-  return buildUsageResponse(tracker);
 }
 
 // ══════════════════════════════════════════
@@ -237,19 +263,13 @@ async function validateOnce() {
 
 async function handleSummarize() {
   var credits = await getCredits();
-  if (credits <= 0) {
-    return { ok: false, error: 'no_credits', credits: 0 };
-  }
+  if (credits <= 0) return { ok: false, error: 'no_credits', credits: 0 };
 
   var apiKey = await ValorStorage.loadApiKey();
-  if (!apiKey) {
-    return { ok: false, error: 'no_key' };
-  }
+  if (!apiKey) return { ok: false, error: 'no_key' };
 
   var tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tabs || !tabs.length) {
-    return { ok: false, error: 'no_tab' };
-  }
+  if (!tabs || !tabs.length) return { ok: false, error: 'no_tab' };
   var tab = tabs[0];
 
   var selectedText = '';
@@ -271,15 +291,11 @@ async function handleSummarize() {
   }
 
   var result = await actionsRegistry.SUMMARIZE(apiKey, content);
-
-  if (!result.ok) {
-    return result;
-  }
+  if (!result.ok) return result;
 
   var creditResult = await deductCredit();
-
   if (result.tokensUsed) {
-    await addTokens(result.tokensUsed);
+    await addTokensToTracker(CLAUDE_TRACKER_KEY, result.tokensUsed);
   }
 
   return {
@@ -291,7 +307,7 @@ async function handleSummarize() {
 }
 
 // ══════════════════════════════════════════
-// Internal message handler (from popup, content scripts)
+// Message handlers
 // ══════════════════════════════════════════
 
 chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
@@ -303,7 +319,12 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
   }
 
   if (message.type === 'GET_USAGE') {
-    handleGetUsage().then(sendResponse);
+    handleGetClaudeUsage().then(sendResponse);
+    return true;
+  }
+
+  if (message.type === 'GET_OPENAI_USAGE') {
+    handleGetOpenAIUsage().then(sendResponse);
     return true;
   }
 
@@ -330,46 +351,29 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
   }
 
   if (message.type === 'RECORD_TOKENS') {
-    addTokens(message.tokens).then(function(tracker) {
+    var key = message.platform === 'openai' ? OPENAI_TRACKER_KEY : CLAUDE_TRACKER_KEY;
+    addTokensToTracker(key, message.tokens).then(function(tracker) {
       sendResponse(buildUsageResponse(tracker));
     });
     return true;
   }
 
   if (message.type === 'FORCE_VALIDATE') {
-    validateOnce().then(sendResponse);
+    validateClaude().then(sendResponse);
+    return true;
+  }
+
+  if (message.type === 'FORCE_VALIDATE_OPENAI') {
+    validateOpenAI().then(sendResponse);
     return true;
   }
 });
 
-// ══════════════════════════════════════════
-// External message handler (from success page via externally_connectable)
-// ══════════════════════════════════════════
-
 chrome.runtime.onMessageExternal.addListener(function(message, sender, sendResponse) {
-  console.log('[Valor] External message received:', message.type, 'from:', sender.url);
-
+  console.log('[Valor] External message received:', message.type);
   if (message.type === 'ADD_CREDITS') {
     handleAddCredits(message).then(sendResponse);
     return true;
   }
-
   sendResponse({ ok: false, error: 'unknown_message' });
 });
-
-// ══════════════════════════════════════════
-
-async function handleGetUsage() {
-  var apiKey = await ValorStorage.loadApiKey();
-  if (!apiKey) {
-    return { ok: false, error: 'no_key' };
-  }
-
-  var tracker = await getTracker();
-
-  if (!tracker.keyValid) {
-    return validateOnce();
-  }
-
-  return buildUsageResponse(tracker);
-}
