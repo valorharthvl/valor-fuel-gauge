@@ -1,6 +1,6 @@
 // popup.js — Valor AI Fuel Gauge popup logic.
 // Reads local token tracking data and action pack credits from the background service worker.
-// Sends a PING first to wake the service worker before requesting data.
+// Handles the Summarize action button and displays results.
 
 document.addEventListener('DOMContentLoaded', function() {
 
@@ -14,6 +14,13 @@ document.addEventListener('DOMContentLoaded', function() {
   var creditsValue = document.getElementById('credits-value');
   var buyBtn = document.getElementById('buy-btn');
   var settingsBtn = document.getElementById('settings-btn');
+  var summarizeBtn = document.getElementById('summarize-btn');
+  var actionError = document.getElementById('action-error');
+  var resultBox = document.getElementById('result-box');
+  var resultText = document.getElementById('result-text');
+  var resultDismiss = document.getElementById('result-dismiss');
+
+  var currentCredits = 0;
 
   // ── Gauge constants ──
   var RADIUS = 68;
@@ -76,16 +83,22 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // ── Wake the service worker with a PING, then request data ──
+  function updateCreditsDisplay(credits) {
+    currentCredits = credits;
+    creditsValue.textContent = credits;
+    if (credits <= 0) {
+      buyBtn.classList.add('pulse');
+    } else {
+      buyBtn.classList.remove('pulse');
+    }
+  }
 
-  console.log('[Valor Popup] Opened. Sending PING to wake service worker.');
+  // ── Wake the service worker with a PING, then request data ──
 
   chrome.runtime.sendMessage({ type: 'PING' }, function() {
     if (chrome.runtime.lastError) {
-      console.log('[Valor Popup] PING error (may be normal):', chrome.runtime.lastError.message);
+      // Ignore — PING just wakes the worker.
     }
-
-    // Request usage data and credits in parallel after wake.
     requestUsage();
     requestCredits();
   });
@@ -93,22 +106,11 @@ document.addEventListener('DOMContentLoaded', function() {
   // ── Usage data ──
 
   function requestUsage() {
-    console.log('[Valor Popup] Sending GET_USAGE.');
-
     chrome.runtime.sendMessage({ type: 'GET_USAGE' }, function(response) {
-      if (chrome.runtime.lastError) {
-        console.error('[Valor Popup] GET_USAGE error:', chrome.runtime.lastError.message);
+      if (chrome.runtime.lastError || !response) {
         showError('Unable to reach background service.');
         return;
       }
-
-      if (!response) {
-        console.error('[Valor Popup] GET_USAGE returned null.');
-        showError('Unable to reach background service.');
-        return;
-      }
-
-      console.log('[Valor Popup] GET_USAGE response:', JSON.stringify(response));
 
       if (response.error === 'no_key') {
         showMessage('Add your API key in settings to get started');
@@ -141,19 +143,71 @@ document.addEventListener('DOMContentLoaded', function() {
   // ── Credit balance ──
 
   function requestCredits() {
-    console.log('[Valor Popup] Sending GET_CREDITS.');
-
     chrome.runtime.sendMessage({ type: 'GET_CREDITS' }, function(response) {
       if (chrome.runtime.lastError || !response) {
-        console.error('[Valor Popup] GET_CREDITS error.');
         creditsValue.textContent = '--';
         return;
       }
-
-      console.log('[Valor Popup] GET_CREDITS response:', JSON.stringify(response));
-      creditsValue.textContent = response.credits;
+      updateCreditsDisplay(response.credits);
     });
   }
+
+  // ── Summarize action ──
+
+  summarizeBtn.addEventListener('click', function() {
+    actionError.textContent = '';
+
+    if (currentCredits <= 0) {
+      actionError.textContent = 'No credits remaining. Buy more to continue.';
+      return;
+    }
+
+    summarizeBtn.disabled = true;
+    summarizeBtn.textContent = 'Summarizing...';
+    resultBox.classList.add('hidden');
+
+    chrome.runtime.sendMessage({ type: 'SUMMARIZE' }, function(response) {
+      summarizeBtn.disabled = false;
+      summarizeBtn.textContent = 'Summarize';
+
+      if (chrome.runtime.lastError || !response) {
+        actionError.textContent = 'Unable to reach background service.';
+        return;
+      }
+
+      if (response.error === 'no_credits') {
+        actionError.textContent = 'No credits remaining. Buy more to continue.';
+        updateCreditsDisplay(0);
+        return;
+      }
+
+      if (response.error === 'no_key') {
+        actionError.textContent = 'Add your API key in settings first.';
+        return;
+      }
+
+      if (!response.ok) {
+        actionError.textContent = response.error === 'network_error'
+          ? 'Network error. Check your connection.'
+          : 'Summary failed. Please try again.';
+        return;
+      }
+
+      resultText.textContent = response.summary;
+      resultBox.classList.remove('hidden');
+
+      if (typeof response.credits === 'number') {
+        updateCreditsDisplay(response.credits);
+      }
+    });
+  });
+
+  // ── Result dismiss ──
+
+  resultDismiss.addEventListener('click', function() {
+    resultBox.classList.add('hidden');
+    resultText.textContent = '';
+  });
 
   // ── Button handlers ──
 

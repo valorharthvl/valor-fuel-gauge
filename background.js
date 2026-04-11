@@ -1,6 +1,6 @@
 // background.js — Valor AI Fuel Gauge service worker.
 // All usage tracking is LOCAL in Chrome storage. No Anthropic usage endpoint exists.
-// The only API call is a one-time key validation on first load.
+// Actions are dispatched through the actionsRegistry for extensibility.
 
 console.log('[Valor] Service worker loaded.');
 
@@ -8,10 +8,68 @@ importScripts('storage.js', 'api.js');
 
 var TRACKER_KEY = '_valor_token_tracker';
 var CREDITS_KEY = 'valor_action_credits';
-var DEFAULT_BUDGET = 100000; // 100,000 tokens per month
+var DEFAULT_BUDGET = 100000;
 var FREE_CREDITS = 5;
 
-// ── Lifecycle ──
+// ══════════════════════════════════════════
+// Actions Registry
+// Each handler receives (apiKey, content, options) and returns
+// { ok, result, tokensUsed } or { ok: false, error }.
+// To add a new action: add a key here and a message handler below.
+// ══════════════════════════════════════════
+
+var actionsRegistry = {
+
+  SUMMARIZE: async function(apiKey, content) {
+    var response;
+    try {
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: ValorAPI._headers(apiKey),
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 150,
+          system: 'You are a concise summarizer. Summarize the provided text in 3 sentences maximum. Be direct and clear.',
+          messages: [{ role: 'user', content: content }]
+        })
+      });
+    } catch (err) {
+      return { ok: false, error: 'network_error' };
+    }
+
+    console.log('[Valor] SUMMARIZE HTTP status:', response.status);
+
+    if (response.status === 401) {
+      return { ok: false, error: 'invalid_key' };
+    }
+
+    if (!response.ok) {
+      var errorBody = await response.text();
+      console.log('[Valor] SUMMARIZE error body:', errorBody);
+      return { ok: false, error: 'api_error' };
+    }
+
+    var body = await response.json();
+
+    var text = '';
+    if (body.content && body.content[0] && body.content[0].text) {
+      text = body.content[0].text;
+    }
+
+    var tokensUsed = 0;
+    if (body.usage) {
+      tokensUsed = (body.usage.input_tokens || 0) + (body.usage.output_tokens || 0);
+    }
+
+    return { ok: true, result: text, tokensUsed: tokensUsed };
+  }
+
+  // Future actions: REWRITE_TONE, DRAFT_EMAIL, EXPLAIN_CODE
+};
+
+// ══════════════════════════════════════════
+// Lifecycle
+// ══════════════════════════════════════════
 
 chrome.runtime.onInstalled.addListener(function() {
   console.log('[Valor] onInstalled fired.');
@@ -19,7 +77,9 @@ chrome.runtime.onInstalled.addListener(function() {
   initCredits();
 });
 
-// ── Action pack credits ──
+// ══════════════════════════════════════════
+// Action pack credits
+// ══════════════════════════════════════════
 
 async function initCredits() {
   var stored = await ValorStorage.get([CREDITS_KEY]);
@@ -49,7 +109,9 @@ async function deductCredit() {
   return { ok: true, credits: newBalance };
 }
 
-// ── Local token tracker ──
+// ══════════════════════════════════════════
+// Local token tracker
+// ══════════════════════════════════════════
 
 async function initTracker() {
   var stored = await ValorStorage.get([TRACKER_KEY]);
@@ -74,7 +136,6 @@ async function getTracker() {
   var stored = await ValorStorage.get([TRACKER_KEY]);
   var tracker = stored[TRACKER_KEY];
 
-  // Auto-reset if the monthly period has elapsed.
   if (new Date() >= new Date(tracker.resetDate)) {
     var now = new Date();
     var nextReset = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -110,7 +171,9 @@ function buildUsageResponse(tracker) {
   };
 }
 
-// ── One-time key validation (first load only) ──
+// ══════════════════════════════════════════
+// One-time key validation
+// ══════════════════════════════════════════
 
 async function validateOnce() {
   var apiKey = await ValorStorage.loadApiKey();
@@ -129,7 +192,6 @@ async function validateOnce() {
     return { ok: false, error: result.error };
   }
 
-  // Key is valid. Record the tokens the validation probe consumed.
   console.log('[Valor] Key valid. Probe used', result.tokensUsed, 'tokens.');
   tracker.keyValid = true;
   tracker.tokensUsed += result.tokensUsed;
@@ -138,7 +200,75 @@ async function validateOnce() {
   return buildUsageResponse(tracker);
 }
 
-// ── Message handler ──
+// ══════════════════════════════════════════
+// SUMMARIZE action handler
+// ══════════════════════════════════════════
+
+async function handleSummarize() {
+  // 1. Check credits first.
+  var credits = await getCredits();
+  if (credits <= 0) {
+    return { ok: false, error: 'no_credits', credits: 0 };
+  }
+
+  // 2. Load API key.
+  var apiKey = await ValorStorage.loadApiKey();
+  if (!apiKey) {
+    return { ok: false, error: 'no_key' };
+  }
+
+  // 3. Get selected text from the active tab.
+  var tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tabs || !tabs.length) {
+    return { ok: false, error: 'no_tab' };
+  }
+  var tab = tabs[0];
+
+  var selectedText = '';
+  try {
+    var results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: function() { return window.getSelection().toString().trim(); }
+    });
+    if (results && results[0] && results[0].result) {
+      selectedText = results[0].result;
+    }
+  } catch (e) {
+    console.log('[Valor] scripting.executeScript failed:', e.message);
+  }
+
+  // 4. Fallback to page title + URL if no text selected.
+  var content = selectedText;
+  if (!content) {
+    content = 'Page: ' + (tab.title || 'Unknown') + '\nURL: ' + (tab.url || 'Unknown');
+  }
+
+  // 5. Run through the actions registry.
+  var result = await actionsRegistry.SUMMARIZE(apiKey, content);
+
+  if (!result.ok) {
+    return result;
+  }
+
+  // 6. Deduct one credit.
+  var creditResult = await deductCredit();
+
+  // 7. Record tokens used.
+  if (result.tokensUsed) {
+    await addTokens(result.tokensUsed);
+  }
+
+  return {
+    ok: true,
+    summary: result.result,
+    credits: creditResult.credits,
+    tokensUsed: result.tokensUsed
+  };
+}
+
+// ══════════════════════════════════════════
+// Message handler
+// ══════════════════════════════════════════
 
 chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
   console.log('[Valor] Message received:', message.type);
@@ -149,10 +279,7 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
   }
 
   if (message.type === 'GET_USAGE') {
-    handleGetUsage().then(function(data) {
-      console.log('[Valor] GET_USAGE response:', JSON.stringify(data));
-      sendResponse(data);
-    });
+    handleGetUsage().then(sendResponse);
     return true;
   }
 
@@ -165,6 +292,11 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
 
   if (message.type === 'DEDUCT_CREDIT') {
     deductCredit().then(sendResponse);
+    return true;
+  }
+
+  if (message.type === 'SUMMARIZE') {
+    handleSummarize().then(sendResponse);
     return true;
   }
 
@@ -189,7 +321,6 @@ async function handleGetUsage() {
 
   var tracker = await getTracker();
 
-  // Validate key on first load only. After that, read local tracker.
   if (!tracker.keyValid) {
     return validateOnce();
   }

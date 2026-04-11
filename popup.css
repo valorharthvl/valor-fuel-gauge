@@ -132,12 +132,96 @@ body {
   color: #64748b;
 }
 
+/* ── Action section ── */
+
+#action-section {
+  padding: 0 0 16px;
+}
+
+#summarize-btn {
+  width: 100%;
+  padding: 10px 0;
+  background: #8b5cf6;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+#summarize-btn:hover {
+  background: #7c3aed;
+}
+
+#summarize-btn:active {
+  background: #6d28d9;
+}
+
+#summarize-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-error {
+  font-size: 12px;
+  color: #f87171;
+  margin-top: 8px;
+  min-height: 0;
+}
+
+.action-error:empty {
+  display: none;
+}
+
+/* ── Result box ── */
+
+.result-box {
+  position: relative;
+  margin-top: 10px;
+  padding: 12px 32px 12px 14px;
+  background: #131c31;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+}
+
+.result-box.hidden {
+  display: none;
+}
+
+.result-box #result-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #cbd5e1;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.result-dismiss {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: none;
+  border: none;
+  color: #475569;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.result-dismiss:hover {
+  color: #94a3b8;
+}
+
 /* ── Divider ── */
 
 #divider {
   height: 1px;
   background: #1e293b;
-  margin: 16px 0;
+  margin: 0 0 16px;
 }
 
 /* ── Credits ── */
@@ -189,4 +273,15 @@ body {
 
 #buy-btn:active {
   background: #1d4ed8;
+}
+
+/* ── Buy More pulse when credits are 0 ── */
+
+@keyframes pulse-buy {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
+  50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+}
+
+#buy-btn.pulse {
+  animation: pulse-buy 2s ease infinite;
 }

@@ -1,11 +1,11 @@
 // content.js — Valor AI Fuel Gauge content script.
 // Injected into claude.ai pages per manifest.json content_scripts config.
-// This file intentionally does NO DOM scraping of Claude's interface.
-// It only listens for messages from the popup/background to coordinate actions.
+// No DOM scraping. Only returns user-selected text on request.
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'PING') {
-    sendResponse({ ok: true, context: 'content_script_active' });
+chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+  if (message.type === 'GET_SELECTED_TEXT') {
+    var text = window.getSelection().toString().trim();
+    sendResponse({ text: text });
   }
-  return true;
+  return false;
 });

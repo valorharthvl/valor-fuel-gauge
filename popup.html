@@ -23,23 +23,8 @@
     <section id="gauge-section">
       <div id="gauge-container">
         <svg id="gauge-svg" viewBox="0 0 160 160">
-          <!-- Background track -->
-          <circle
-            cx="80" cy="80" r="68"
-            fill="none"
-            stroke="#1e293b"
-            stroke-width="12"
-          />
-          <!-- Foreground arc (drawn by JS) -->
-          <circle
-            id="gauge-arc"
-            cx="80" cy="80" r="68"
-            fill="none"
-            stroke="#4ade80"
-            stroke-width="12"
-            stroke-linecap="round"
-            transform="rotate(-90 80 80)"
-          />
+          <circle cx="80" cy="80" r="68" fill="none" stroke="#1e293b" stroke-width="12" />
+          <circle id="gauge-arc" cx="80" cy="80" r="68" fill="none" stroke="#4ade80" stroke-width="12" stroke-linecap="round" transform="rotate(-90 80 80)" />
         </svg>
         <div id="gauge-label">
           <span id="gauge-percent">--</span>
@@ -48,6 +33,15 @@
       </div>
       <p id="gauge-caption">Claude usage remaining</p>
       <p id="reset-date">Resets <span id="reset-date-value">--</span></p>
+    </section>
+
+    <section id="action-section">
+      <button id="summarize-btn" type="button">Summarize</button>
+      <p id="action-error" class="action-error"></p>
+      <div id="result-box" class="result-box hidden">
+        <button id="result-dismiss" class="result-dismiss" type="button" title="Dismiss">&times;</button>
+        <p id="result-text"></p>
+      </div>
     </section>
 
     <div id="divider"></div>
