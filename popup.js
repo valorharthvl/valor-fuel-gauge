@@ -1,5 +1,5 @@
 // popup.js — Valor AI Fuel Gauge popup logic.
-// Reads local token tracking data from the background service worker.
+// Reads local token tracking data and action pack credits from the background service worker.
 // Sends a PING first to wake the service worker before requesting data.
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -76,16 +76,23 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // ── Wake the service worker with a PING, then request usage data ──
+  // ── Wake the service worker with a PING, then request data ──
 
   console.log('[Valor Popup] Opened. Sending PING to wake service worker.');
 
   chrome.runtime.sendMessage({ type: 'PING' }, function() {
-    // Ignore PING errors — the point is just to wake the worker.
     if (chrome.runtime.lastError) {
       console.log('[Valor Popup] PING error (may be normal):', chrome.runtime.lastError.message);
     }
 
+    // Request usage data and credits in parallel after wake.
+    requestUsage();
+    requestCredits();
+  });
+
+  // ── Usage data ──
+
+  function requestUsage() {
     console.log('[Valor Popup] Sending GET_USAGE.');
 
     chrome.runtime.sendMessage({ type: 'GET_USAGE' }, function(response) {
@@ -123,17 +130,30 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
 
-      // ── Success: render live data ──
       renderGauge(response.percentRemaining);
       gaugeCaption.textContent = 'Claude usage remaining';
       gaugeCaption.style.color = '';
       resetDateEl.style.display = '';
       resetDateValue.textContent = formatResetDate(response.resetDate);
     });
-  });
+  }
 
-  // ── Credits: still placeholder until Supabase is wired up ──
-  creditsValue.textContent = '--';
+  // ── Credit balance ──
+
+  function requestCredits() {
+    console.log('[Valor Popup] Sending GET_CREDITS.');
+
+    chrome.runtime.sendMessage({ type: 'GET_CREDITS' }, function(response) {
+      if (chrome.runtime.lastError || !response) {
+        console.error('[Valor Popup] GET_CREDITS error.');
+        creditsValue.textContent = '--';
+        return;
+      }
+
+      console.log('[Valor Popup] GET_CREDITS response:', JSON.stringify(response));
+      creditsValue.textContent = response.credits;
+    });
+  }
 
   // ── Button handlers ──
 

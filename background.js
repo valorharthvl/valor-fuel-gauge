@@ -7,14 +7,47 @@ console.log('[Valor] Service worker loaded.');
 importScripts('storage.js', 'api.js');
 
 var TRACKER_KEY = '_valor_token_tracker';
+var CREDITS_KEY = 'valor_action_credits';
 var DEFAULT_BUDGET = 100000; // 100,000 tokens per month
+var FREE_CREDITS = 5;
 
 // ── Lifecycle ──
 
 chrome.runtime.onInstalled.addListener(function() {
   console.log('[Valor] onInstalled fired.');
   initTracker();
+  initCredits();
 });
+
+// ── Action pack credits ──
+
+async function initCredits() {
+  var stored = await ValorStorage.get([CREDITS_KEY]);
+  if (typeof stored[CREDITS_KEY] !== 'number') {
+    await ValorStorage.set({ [CREDITS_KEY]: FREE_CREDITS });
+    console.log('[Valor] Credits initialized:', FREE_CREDITS);
+  }
+}
+
+async function getCredits() {
+  var stored = await ValorStorage.get([CREDITS_KEY]);
+  var balance = stored[CREDITS_KEY];
+  if (typeof balance !== 'number') {
+    await ValorStorage.set({ [CREDITS_KEY]: FREE_CREDITS });
+    return FREE_CREDITS;
+  }
+  return balance;
+}
+
+async function deductCredit() {
+  var balance = await getCredits();
+  if (balance <= 0) {
+    return { ok: false, error: 'no_credits', credits: 0 };
+  }
+  var newBalance = balance - 1;
+  await ValorStorage.set({ [CREDITS_KEY]: newBalance });
+  return { ok: true, credits: newBalance };
+}
 
 // ── Local token tracker ──
 
@@ -120,6 +153,18 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
       console.log('[Valor] GET_USAGE response:', JSON.stringify(data));
       sendResponse(data);
     });
+    return true;
+  }
+
+  if (message.type === 'GET_CREDITS') {
+    getCredits().then(function(balance) {
+      sendResponse({ ok: true, credits: balance });
+    });
+    return true;
+  }
+
+  if (message.type === 'DEDUCT_CREDIT') {
+    deductCredit().then(sendResponse);
     return true;
   }
 
