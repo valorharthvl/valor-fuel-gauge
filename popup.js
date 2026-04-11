@@ -1,8 +1,11 @@
 // popup.js — Valor AI Fuel Gauge popup logic.
 // Reads local token tracking data and action pack credits from the background service worker.
 // Handles the Summarize action button and displays results.
+// Buy More opens Vercel-hosted Stripe checkout in a new tab.
 
 document.addEventListener('DOMContentLoaded', function() {
+
+  var CHECKOUT_URL = 'https://valor-checkout.vercel.app/checkout.html';
 
   // ── DOM references ──
   var gaugeArc = document.getElementById('gauge-arc');
@@ -209,11 +212,13 @@ document.addEventListener('DOMContentLoaded', function() {
     resultText.textContent = '';
   });
 
-  // ── Button handlers ──
+  // ── Buy More — opens Stripe checkout in a new tab ──
 
   buyBtn.addEventListener('click', function() {
-    console.log('[Valor Popup] Buy More clicked — Stripe integration pending.');
+    chrome.tabs.create({ url: CHECKOUT_URL });
   });
+
+  // ── Settings ──
 
   settingsBtn.addEventListener('click', function() {
     chrome.runtime.openOptionsPage();

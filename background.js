@@ -99,6 +99,14 @@ async function getCredits() {
   return balance;
 }
 
+async function addCredits(amount) {
+  var balance = await getCredits();
+  var newBalance = balance + amount;
+  await ValorStorage.set({ [CREDITS_KEY]: newBalance });
+  console.log('[Valor] Credits added:', amount, 'New balance:', newBalance);
+  return { ok: true, credits: newBalance };
+}
+
 async function deductCredit() {
   var balance = await getCredits();
   if (balance <= 0) {
@@ -205,19 +213,16 @@ async function validateOnce() {
 // ══════════════════════════════════════════
 
 async function handleSummarize() {
-  // 1. Check credits first.
   var credits = await getCredits();
   if (credits <= 0) {
     return { ok: false, error: 'no_credits', credits: 0 };
   }
 
-  // 2. Load API key.
   var apiKey = await ValorStorage.loadApiKey();
   if (!apiKey) {
     return { ok: false, error: 'no_key' };
   }
 
-  // 3. Get selected text from the active tab.
   var tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tabs || !tabs.length) {
     return { ok: false, error: 'no_tab' };
@@ -237,23 +242,19 @@ async function handleSummarize() {
     console.log('[Valor] scripting.executeScript failed:', e.message);
   }
 
-  // 4. Fallback to page title + URL if no text selected.
   var content = selectedText;
   if (!content) {
     content = 'Page: ' + (tab.title || 'Unknown') + '\nURL: ' + (tab.url || 'Unknown');
   }
 
-  // 5. Run through the actions registry.
   var result = await actionsRegistry.SUMMARIZE(apiKey, content);
 
   if (!result.ok) {
     return result;
   }
 
-  // 6. Deduct one credit.
   var creditResult = await deductCredit();
 
-  // 7. Record tokens used.
   if (result.tokensUsed) {
     await addTokens(result.tokensUsed);
   }
@@ -292,6 +293,16 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
 
   if (message.type === 'DEDUCT_CREDIT') {
     deductCredit().then(sendResponse);
+    return true;
+  }
+
+  if (message.type === 'ADD_CREDITS') {
+    var amount = message.credits || 0;
+    if (amount > 0) {
+      addCredits(amount).then(sendResponse);
+    } else {
+      sendResponse({ ok: false, error: 'invalid_amount' });
+    }
     return true;
   }
 
