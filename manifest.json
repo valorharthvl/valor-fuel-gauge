@@ -5,9 +5,7 @@
   "description": "Real-time Claude and ChatGPT usage status with quick AI summary actions powered by Valor action packs.",
   "permissions": [
     "storage",
-    "notifications",
     "activeTab",
-    "alarms",
     "scripting"
   ],
   "host_permissions": [

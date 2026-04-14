@@ -40,6 +40,7 @@ All credentials are in ~/valor-fuel-gauge/.env
 - Correct Anthropic model string for validation calls is claude-haiku-4-5-20251001. Do not use claude-haiku-20240307 as it returns 404.
 - Anthropic API requires credits loaded in the account at console.anthropic.com Plans and Billing before any API calls succeed regardless of key validity.
 - OpenAI key validation uses gpt-4o-mini with max_tokens 1 for minimal cost.
+- Chrome Web Store requires every declared permission to be actively used. Remove notifications and alarms if not called in code. Violation reference Purple Potassium.
 
 ## Completed Steps
 - Step 1: File structure and manifest complete and loading in Chrome
