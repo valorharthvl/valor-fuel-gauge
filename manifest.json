@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Valor AI Fuel Gauge – AI Usage Tracker",
+  "name": "Claude & ChatGPT AI Usage Tracker – Valor Fuel Gauge",
   "version": "1.2.0",
   "description": "AI usage tracker for Claude & ChatGPT. Fuel gauge, warnings, one-click summarizer. Free to install.",
   "permissions": [

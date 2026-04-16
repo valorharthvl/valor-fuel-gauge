@@ -42,6 +42,7 @@ All credentials are in ~/valor-fuel-gauge/.env
 - OpenAI key validation uses gpt-4o-mini with max_tokens 1 for minimal cost.
 - Chrome Web Store requires every declared permission to be actively used. Remove notifications and alarms if not called in code. Violation reference Purple Potassium.
 - Chrome Web Store zip must be created from inside the ~/valor-fuel-gauge directory with files at root level. Never zip from the parent directory.
+- Extension name changed to "Claude & ChatGPT AI Usage Tracker – Valor Fuel Gauge" for Chrome Web Store SEO optimization.
 
 ## Completed Steps
 - Step 1: File structure and manifest complete and loading in Chrome
