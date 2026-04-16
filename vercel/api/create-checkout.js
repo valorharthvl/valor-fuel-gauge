@@ -34,18 +34,12 @@ module.exports = async function handler(req, res) {
       payment_method_types: ['card'],
       line_items: [
         {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: 'Valor Action Pack',
-              description: '50 AI action credits for Valor AI Fuel Gauge'
-            },
-            unit_amount: 999
-          },
+          price: 'price_1TMqoHE6uEPM3uMoUzX1ATdC',
           quantity: 1
         }
       ],
       mode: 'payment',
+      automatic_tax: { enabled: true },
       success_url: successUrl,
       cancel_url: cancelUrl,
       metadata: {

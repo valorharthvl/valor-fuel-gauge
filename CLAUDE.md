@@ -18,7 +18,7 @@ A Manifest V3 Chrome extension that shows Claude AI and ChatGPT users their real
 - Chrome Extension Manifest V3
 - Vanilla JavaScript only
 - Supabase for action pack ledger and user records
-- Stripe for $9.99 action pack purchases
+- Stripe for $1.99 action pack purchases
 - Vercel for backend API endpoints
 - Resend for onboarding emails
 - Anthropic API for Claude summary actions

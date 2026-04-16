@@ -37,7 +37,7 @@ Then I added one-click summarization because I was spending credits just asking 
 
 The whole thing runs on vanilla JavaScript. Your API key is AES-256 encrypted and never leaves your machine. I'm not a big company harvesting your data — I'm one guy who needed a tool and figured others might too.
 
-5 free summary credits on install. If you find it useful, action packs are $9.99 for 50 more.
+5 free summary credits on install. If you find it useful, action packs are $1.99 for 50 more.
 
 I'd genuinely appreciate any feedback. This is my first Chrome extension and my first Product Hunt launch. Happy to answer any questions.
 ```
