@@ -52,6 +52,13 @@ All credentials are in ~/valor-fuel-gauge/.env
 - Step 7: Stripe checkout flow complete. Vercel backend live at valor-checkout.vercel.app. Server side payment verification working. 50 credits delivered to extension automatically after purchase. End to end tested and confirmed working.
 - v1.1: Dual platform support added. Claude and ChatGPT gauges side by side. OpenAI API key encryption and storage. Options page updated with both key sections.
 
+## Stripe Configuration
+- Product: Valor Action Pack (prod_ULXuYmDvMrE0gX)
+- Price: $1.99 USD one-time (price_1TMqoHE6uEPM3uMoUzX1ATdC)
+- Credits per purchase: 50
+- Automatic tax: enabled
+- Checkout hosted via Vercel at valor-checkout.vercel.app
+
 ## Current Step
 Post-launch v1.1: Extension submitted to Chrome Web Store. ChatGPT support added. Preparing for Product Hunt launch and Edge Add-ons submission.
 
