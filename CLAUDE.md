@@ -41,6 +41,7 @@ All credentials are in ~/valor-fuel-gauge/.env
 - Anthropic API requires credits loaded in the account at console.anthropic.com Plans and Billing before any API calls succeed regardless of key validity.
 - OpenAI key validation uses gpt-4o-mini with max_tokens 1 for minimal cost.
 - Chrome Web Store requires every declared permission to be actively used. Remove notifications and alarms if not called in code. Violation reference Purple Potassium.
+- Chrome Web Store zip must be created from inside the ~/valor-fuel-gauge directory with files at root level. Never zip from the parent directory.
 
 ## Completed Steps
 - Step 1: File structure and manifest complete and loading in Chrome
