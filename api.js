@@ -1,4 +1,4 @@
-// api.js — Valor AI Fuel Gauge API helper.
+// api.js — AI & API Tracker API helper.
 // All external calls are routed through here. No DOM scraping.
 // Supports both Anthropic (Claude) and OpenAI (ChatGPT) APIs.
 

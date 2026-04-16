@@ -1,4 +1,4 @@
-// background.js — Valor AI Fuel Gauge service worker.
+// background.js — AI & API Tracker service worker.
 // Tracks usage for both Claude (Anthropic) and ChatGPT (OpenAI) locally.
 // Actions dispatched through actionsRegistry.
 

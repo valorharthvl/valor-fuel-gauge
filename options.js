@@ -1,4 +1,4 @@
-// options.js — Valor AI Fuel Gauge settings page (UI only).
+// options.js — AI & API Tracker settings page (UI only).
 // Handles both Anthropic and OpenAI API key sections.
 
 document.addEventListener('DOMContentLoaded', async function() {

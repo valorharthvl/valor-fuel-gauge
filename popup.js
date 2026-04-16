@@ -1,4 +1,4 @@
-// popup.js — Valor AI Fuel Gauge popup logic.
+// popup.js — AI & API Tracker popup logic.
 // Displays dual gauges for Claude and ChatGPT usage.
 
 document.addEventListener('DOMContentLoaded', function() {

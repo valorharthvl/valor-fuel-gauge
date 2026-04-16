@@ -1,4 +1,4 @@
-// content.js — Valor AI Fuel Gauge content script.
+// content.js — AI & API Tracker content script.
 // Injected into claude.ai pages per manifest.json content_scripts config.
 // No DOM scraping. Only returns user-selected text on request.
 

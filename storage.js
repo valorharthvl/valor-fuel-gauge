@@ -1,4 +1,4 @@
-// storage.js — Valor AI Fuel Gauge storage + AES-256-GCM encryption layer.
+// storage.js — AI & API Tracker storage + AES-256-GCM encryption layer.
 // Uses Web Crypto API for all encryption. No external libraries.
 // Supports both Anthropic and OpenAI API keys independently.
 
