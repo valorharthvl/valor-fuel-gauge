@@ -30,7 +30,7 @@ Technical details for anyone who cares:
 - Token tracking is local, not pulling from any Anthropic endpoint (they don't have one)
 - Stripe for action pack purchases, server-side verification via Vercel
 
-5 free summary credits on install. Action packs are $1.99 for 50 if you want more.
+5 free summary credits on install. Action packs are $1.99 for 20 if you want more.
 
 I'm a veteran and this is my first Chrome extension. Built the entire thing with Claude helping me code it, which felt appropriately meta.
 

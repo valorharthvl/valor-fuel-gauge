@@ -49,7 +49,7 @@ FEATURES:
 - Color-coded: green above 50%, yellow 25-50%, red below 25%
 - One-click AI text summarization on any web page
 - Action pack credit system with 5 free credits on install
-- Buy additional 50-credit action packs for $1.99
+- Buy additional 20-credit action packs for $1.99
 - AES-256 encrypted local storage for your API key
 - Your API key never leaves your device
 

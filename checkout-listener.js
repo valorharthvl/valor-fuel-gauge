@@ -33,7 +33,7 @@
         return;
       }
 
-      var credits = data.credits || 50;
+      var credits = data.credits || 20;
 
       // Send via internal content-script messaging (backup path).
       chrome.runtime.sendMessage(

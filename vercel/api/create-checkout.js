@@ -44,7 +44,7 @@ module.exports = async function handler(req, res) {
       cancel_url: cancelUrl,
       metadata: {
         product: 'valor_action_pack',
-        credits: '50'
+        credits: '20'
       }
     });
 

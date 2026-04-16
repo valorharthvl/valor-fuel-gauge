@@ -21,7 +21,7 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ ok: false, error: 'Payment not completed' });
     }
 
-    var credits = 50;
+    var credits = 20;
     if (session.metadata && session.metadata.credits) {
       credits = parseInt(session.metadata.credits, 10);
     }
