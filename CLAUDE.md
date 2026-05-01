@@ -3,6 +3,17 @@
 ## What This Is
 A Manifest V3 Chrome extension that shows Claude AI and ChatGPT users their real-time usage status and allows quick AI summary actions through a paid action pack system.
 
+## Git Identity
+
+Always set the correct git identity before committing:
+
+```bash
+git config --global user.email "owner@valorhartllc.com"
+git config --global user.name "Ryan Roderick"
+```
+
+All commits must show author as **Ryan Roderick <owner@valorhartllc.com>**. No other identity is permitted.
+
 ## Rules That Never Change
 - Vanilla JavaScript only. No frameworks, no libraries, no dependencies.
 - No DOM scraping of any AI platform under any circumstances.
